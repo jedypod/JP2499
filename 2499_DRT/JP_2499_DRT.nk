@@ -1,0 +1,586 @@
+#line 2
+ 
+ typedef struct {
+        float middle_grey,middle_grey_contrast, contrast_skewness, display_white_target, display_black_target,hue_preservation;
+} dt_iop_sigmoid_params_v2_t;
+
+
+typedef struct {
+        float white_target, black_target, paper_exposure, film_fog,film_power,paper_power,hue_preservation;
+} dt_iop_sigmoid_data_t;
+
+typedef struct {
+  float3 x, y, z;
+} float3x3;
+
+// Helper function to create a float3x3
+__DEVICE__ float3x3 make_float3x3(float3 a, float3 b, float3 c) {
+  float3x3 d;
+  d.x = a, d.y = b, d.z = c;
+  return d;
+}
+
+
+#define identity_mtx make_float3x3(make_float3(1.0f, 0.0f, 0.0f), make_float3(0.0f, 1.0f, 0.0f), make_float3(0.0f, 0.0f, 1.0f))
+#define matrix_davinciwg_to_xyz make_float3x3(make_float3(0.700622320175f, 0.148774802685f, 0.101058728993f), make_float3(0.274118483067f, 0.873631775379f, -0.147750422359f), make_float3(-0.098962903023f, -0.137895315886, 1.325916051865f))
+#define matrix_xyz_to_rec709 make_float3x3(make_float3(3.2409699419f, -1.53738317757f, -0.498610760293f), make_float3(-0.969243636281f, 1.87596750151f, 0.041555057407f), make_float3(0.055630079697f, -0.203976958889f, 1.05697151424f))
+#define matrix_rec709_to_xyz make_float3x3(make_float3(0.412390917540f, 0.357584357262f, 0.180480793118f), make_float3(0.212639078498f, 0.715168714523f, 0.072192311287f), make_float3(0.019330825657f, 0.119194783270f, 0.950532138348f))
+#define matrix_p3d65_to_xyz make_float3x3(make_float3(0.486571133137f, 0.265667706728f, 0.198217317462f), make_float3(0.228974640369f, 0.691738605499f, 0.079286918044f), make_float3(-0.000000000000f, 0.045113388449, 1.043944478035f))
+// Multiply float3 vector a and 3x3 matrix m
+__DEVICE__ float3 mult_f3_f33(float3 a, float3x3 m) {
+  return make_float3(
+    m.x.x * a.x + m.x.y * a.y + m.x.z * a.z,
+    m.y.x * a.x + m.y.y * a.y + m.y.z * a.z,
+    m.z.x * a.x + m.z.y * a.y + m.z.z * a.z);
+}
+
+
+
+__DEVICE__ float3x3 inv_f33(float3x3 m) {
+  float d = m.x.x * (m.y.y * m.z.z - m.z.y * m.y.z) -
+            m.x.y * (m.y.x * m.z.z - m.y.z * m.z.x) +
+            m.x.z * (m.y.x * m.z.y - m.y.y * m.z.x);
+  float id = 1.0f / d;
+  float3x3 c = identity_mtx;
+  c.x.x = id * (m.y.y * m.z.z - m.z.y * m.y.z);
+  c.x.y = id * (m.x.z * m.z.y - m.x.y * m.z.z);
+  c.x.z = id * (m.x.y * m.y.z - m.x.z * m.y.y);
+  c.y.x = id * (m.y.z * m.z.x - m.y.x * m.z.z);
+  c.y.y = id * (m.x.x * m.z.z - m.x.z * m.z.x);
+  c.y.z = id * (m.y.x * m.x.z - m.x.x * m.y.z);
+  c.z.x = id * (m.y.x * m.z.y - m.z.x * m.y.y);
+  c.z.y = id * (m.z.x * m.x.y - m.x.x * m.z.y);
+  c.z.z = id * (m.x.x * m.y.y - m.y.x * m.x.y);
+  return c;
+}
+
+
+__DEVICE__ float oetf_davinci_intermediate(float x, int inv) {
+  /* DaVinci Intermediate Log
+      https://documents.blackmagicdesign.com/InformationNotes/DaVinci_Resolve_17_Wide_Gamut_Intermediate.pdf
+  */
+
+  const float A = 0.0075f;
+  const float B = 7.0f;
+  const float C = 0.07329248f;
+  const float M = 10.44426855f;
+  const float LIN_CUT = 0.00262409f;
+  const float LOG_CUT = 0.02740668f;
+  
+  if (inv == 1) {
+    return x <= LOG_CUT ? x/M : _exp2f(x/C - B) - A;
+  } else {
+    return x <= LIN_CUT ? x*M : (_log2f(x + A) + B)*C;
+  }
+}
+__DEVICE__ float3 vdot(float3x3 m, float3 v) {
+  return make_float3(m.x.x*v.x + m.x.y*v.y + m.x.z*v.z, m.y.x*v.x + m.y.y*v.y + m.y.z*v.z, m.z.x*v.x + m.z.y*v.y + m.z.z*v.z);
+}
+__DEVICE__ float safedivf(float a, float b) {
+  if (b == 0.0f) return 0.0f;
+  else return a/b;
+}
+
+__DEVICE__ float3 safedivf3f(float3 a, float b) {
+  return make_float3(safedivf(a.x, b), safedivf(a.y, b), safedivf(a.z, b));
+}
+
+__DEVICE__ inline float max3(float x, float y, float z) {
+    return _fmaxf(x, _fmaxf(y, z));
+}
+
+__DEVICE__ float _sign(float x) {
+  // Return the sign of float x
+  if (x > 0.0f) return 1.0f; 
+  if (x < 0.0f) return -1.0f; 
+  return 0.0f; 
+}
+__DEVICE__ float spowf(float a, float b) {
+  // Compute "safe" power of float a, reflected over the origin
+  
+    a=_sign(a)*_powf(_fabs(a), b);
+    return a;   
+}
+
+// https://www.desmos.com/calculator/jrff9lrztn
+__DEVICE__ float powerptoe(float x, float p, float m, float t0) {
+  float y = x > t0 ? x : (x-t0)*spowf(spowf((t0-x)/(t0-m), 1.0f/p) + 1.0f, -p) + t0;
+  return y;
+}
+
+__DEVICE__ float3 powerptoef3f(float3 a, float p, float m, float t0) {
+  return make_float3(powerptoe(a.x, p,m,t0), powerptoe(a.y, p,m,t0), powerptoe(a.z, p,m,t0));
+}
+
+__DEVICE__ float3x3 transpose_f33( float3x3 A) {
+
+float3x3 B = A;
+A.x=make_float3(B.x.x,B.y.x,B.z.x);
+A.y=make_float3(B.x.y,B.y.y,B.z.y);
+A.z=make_float3(B.x.z,B.y.z,B.z.z);
+
+return A;
+
+}
+
+
+
+__DEVICE__ float3x3 simpleHueMatrix( float red,float green,float blue) {
+
+
+  float3 redcoeff = make_float3(1,green>0?green:0,blue<0?-blue:0);
+  float3 greencoeff = make_float3(red>0?red:0,1,blue>0?blue:0);
+  float3 bluecoeff = make_float3(red<0?-red:0,green<0?-green:0,1);
+
+  float3 white;
+  white.x = 1 + redcoeff.y + redcoeff.z;
+  white.y = greencoeff.x + 1 + greencoeff.z;
+  white.z = bluecoeff.x + bluecoeff.y + 1;
+
+  redcoeff =  redcoeff/white.x;
+  greencoeff = greencoeff/white.y;
+  bluecoeff =  bluecoeff/white.z;
+
+  float3x3 M = make_float3x3(redcoeff,greencoeff,bluecoeff);
+
+return M;
+}
+
+
+__DEVICE__ float desat(float3 rgb,float redw,float greenw,float bluew, float L1, float a1,float a) {
+  
+  float3 weights = make_float3(redw, greenw, bluew);
+  weights *=  rgb;
+  float x = weights.x + weights.y + weights.z; // take the norm
+
+  float L0 = 1.0f;
+  float b = -_logf((a-L1)/(L0-L1))/a1;
+  float y = L0*_expf(-b*x)+L1*(1-_expf(-b*x));
+  return y;
+}
+
+__DEVICE__ float lumMask(float3 rgb,float redw,float greenw,float bluew) {
+    
+    float3 weights = make_float3(redw, greenw, bluew);
+    weights *=  rgb;
+    float lum = weights.x + weights.y + weights.z; // take the norm
+
+    lum = _powf((lum/(lum+1.16820931127f)),1.1f);
+    lum = lum*lum/(lum+0.01f);
+    lum = _powf(lum,2.5)*(1-lum)+lum*lum;
+
+    return lum;
+}
+
+
+__DEVICE__ float3 Energy709Correction(float3 pre, float3 post) {
+  
+  float PI_LOCAL = _atan2f(1,1)*4;
+  float3 weights = make_float3(0.221425465f, 0.400280101f, 0.378294434f);
+
+  float preavg = weights.x * pre.x + weights.y * pre.y + weights.z * pre.z;
+  float postavg = weights.x * post.x + weights.y * post.y + weights.z * post.z;
+
+  //float gain = safedivf(preavg,postavg);
+  float gain = 4*_atan2f(preavg,postavg)/PI_LOCAL;
+  gain = powerptoe(gain, 0.16f, 0.0f, 1.0f);
+  gain = _tanf(gain*PI_LOCAL/4);
+
+  float3 out = post*gain;
+
+  return out;
+}
+
+__DEVICE__ float3 EnergyP3Correction(float3 pre, float3 post) {
+  
+  float PI_LOCAL = _atan2f(1,1)*4;
+  float3 weights = make_float3(0.246969643241508f, 0.338602410979748f, 0.414427945778744f);
+
+  float preavg = weights.x * pre.x + weights.y * pre.y + weights.z * pre.z;
+  float postavg = weights.x * post.x + weights.y * post.y + weights.z * post.z;
+
+  float gain = 4*_atan2f(preavg,postavg)/PI_LOCAL;
+  gain = powerptoe(gain, 0.16f, 0.0f, 1.0f);
+  gain = _tanf(gain*PI_LOCAL/4);
+
+  float3 out = post*gain;
+
+  return out;
+}
+
+
+__DEVICE__ float3 NonLinearGamutMapping(float3 in, float p, float m, float t0,int corr,int clip) {
+  
+    float mx = max3(in.x, in.y, in.z);
+
+    float3 rgb = in;
+    rgb.x = _fmaxf(in.x,0);
+    rgb.y = _fmaxf(in.y,0);
+    rgb.z = _fmaxf(in.z,0);
+    float3 rats = safedivf3f(in,mx);
+    rats = powerptoef3f(rats,p,m,t0);
+    
+    float3 out = clip==1?rgb:rats*mx;
+
+    out = corr==1?Energy709Correction(in,out):out;
+
+  return out;
+}
+
+
+__DEVICE__ float3 rec709_2_moment(float3 rgb) {
+
+    float PI_LOCAL = _atan2f(1,1)*4;
+    
+    rgb = vdot(matrix_rec709_to_xyz, rgb);
+
+    float3 white = vdot(matrix_rec709_to_xyz, make_float3(1,1,1));
+
+    rgb = rgb/white;
+
+    float avg = (rgb.x + rgb.y + rgb.z)/3;
+
+    float3 hma = {
+      _atan2f(0.5f*(2.0f*rgb.x - rgb.y - rgb.z),(rgb.y - rgb.z)*_sqrtf(3.0f/4.0f)),
+      avg==0?0:_sqrtf((rgb.x-avg)*(rgb.x-avg)+(rgb.y-avg)*(rgb.y-avg)+(rgb.z-avg)*(rgb.z-avg))/(2*avg),
+      avg
+    };
+
+    hma.x = (hma.x<0?hma.x + 2*PI_LOCAL:hma.x)/(2*PI_LOCAL);
+
+    return hma;
+}
+
+__DEVICE__ float satmask(float3 rgb) {
+
+    float PI_LOCAL = _atan2f(1,1)*4;
+    
+    rgb = vdot(matrix_rec709_to_xyz, rgb);
+
+    float3 white = vdot(matrix_rec709_to_xyz, make_float3(1,1,1));
+
+    rgb = rgb/white;
+
+    float avg = (rgb.x + rgb.y + rgb.z)/3;
+
+    float3 hma = {
+      _atan2f(0.5f*(2.0f*rgb.x - rgb.y - rgb.z),(rgb.y - rgb.z)*_sqrtf(3.0f/4.0f)),
+      avg==0?0:_sqrtf((rgb.x-avg)*(rgb.x-avg)+(rgb.y-avg)*(rgb.y-avg)+(rgb.z-avg)*(rgb.z-avg))/(2*avg),
+      avg
+    };
+
+    hma.x = (hma.x<0?hma.x + 2*PI_LOCAL:hma.x)/(2*PI_LOCAL);
+
+    return hma.y;
+}
+
+
+
+
+__DEVICE__ float rec709_limit(float3 rgb) {
+
+    float mn = _fminf(rgb.x,_fminf(rgb.y,rgb.z));
+    float mx = _fmaxf(rgb.x,_fmaxf(rgb.y,rgb.z));
+
+    rgb = rgb - mn;
+
+    rgb = safedivf3f(rgb,mx-mn);
+
+    rgb = rec709_2_moment(rgb);
+
+    return rgb.y;
+}
+
+__DEVICE__ float3 moment_2_rec709(float3 hma) {
+
+    float PI_LOCAL = _atan2f(1,1)*4;
+
+    float3 uav = {
+      _sinf(hma.x*2*PI_LOCAL)*hma.y*hma.z*2,
+      hma.z,
+      _cosf(hma.x*2*PI_LOCAL)*hma.y*hma.z*2
+    };
+
+    float3 rgb;
+
+    rgb.x = 3.36445469654322f*uav.x + uav.y -0.703123835451371f*uav.z;
+    rgb.y = -1.53651187366526*uav.x + uav.y + 1.2945086177787f*uav.z;
+    rgb.z = -0.343491205237832f*uav.x + uav.y -0.958186241990173f*uav.z;
+
+    return rgb;
+}
+
+
+
+__DEVICE__ float _generalized_loglogistic_sigmoid(float value,float magnitude,float paper_exp,float film_fog,float film_power,float paper_power) {
+
+    float clamped_value = _fmaxf(value,0.0f);
+    //float film_response = _powf(film_fog+clamped_value,film_power);
+    float film_response = _powf(film_fog+value,film_power);
+    float paper_response = magnitude*_powf(film_response/(paper_exp+film_response),paper_power);
+    return isnan(paper_response)?magnitude:paper_response;
+}
+
+__DEVICE__ dt_iop_sigmoid_data_t commit_params(dt_iop_sigmoid_params_v2_t params){
+
+    dt_iop_sigmoid_data_t module_data;
+
+    const float ref_film_power = params.middle_grey_contrast;
+    const float ref_paper_power = 1.0f;
+    const float ref_magnitude = 1.0f;
+    const float ref_film_fog = 0.0f;
+    const float ref_paper_exposure = _powf(ref_film_fog + params.middle_grey, ref_film_power) * ((ref_magnitude / params.middle_grey) - 1.0f);
+    const float delta = _expf(-6.0f);
+    const float ref_slope 
+        = (_generalized_loglogistic_sigmoid(params.middle_grey + delta, ref_magnitude, ref_paper_exposure, ref_film_fog,
+                                          ref_film_power, ref_paper_power)
+         - _generalized_loglogistic_sigmoid(params.middle_grey - delta, ref_magnitude, ref_paper_exposure, ref_film_fog,
+                                            ref_film_power, ref_paper_power))/(2.0f/delta);
+
+    module_data.paper_power = _powf(5.0f,-params.contrast_skewness);
+
+      // Slope at low film power
+  const float temp_film_power = 1.0f;
+  const float temp_white_target = 0.01f * params.display_white_target;
+  const float temp_white_grey_relation
+      = _powf(temp_white_target / params.middle_grey, 1.0f / module_data.paper_power) - 1.0f;
+  const float temp_paper_exposure = _powf(params.middle_grey, temp_film_power) * temp_white_grey_relation;
+  const float temp_slope
+      = (_generalized_loglogistic_sigmoid(params.middle_grey + delta, temp_white_target, temp_paper_exposure,
+                                          ref_film_fog, temp_film_power, module_data.paper_power)
+         - _generalized_loglogistic_sigmoid(params.middle_grey - delta, temp_white_target, temp_paper_exposure,
+                                            ref_film_fog, temp_film_power, module_data.paper_power))/(2.0f / delta);
+
+        module_data.film_power = ref_slope/temp_slope;
+        module_data.white_target = 0.01f*params.display_white_target;
+        module_data.black_target = 0.01f*params.display_black_target;
+
+   const float white_grey_relation
+      = _powf(module_data.white_target / params.middle_grey, 1.0f / module_data.paper_power) - 1.0f;
+  const float white_black_relation
+      = _powf(module_data.black_target / module_data.white_target, -1.0f / module_data.paper_power) - 1.0f;
+
+  module_data.film_fog = params.middle_grey * _powf(white_grey_relation, 1.0f / module_data.film_power)
+                          / (_powf(white_black_relation, 1.0f / module_data.film_power)
+                             - _powf(white_grey_relation, 1.0f / module_data.film_power));
+  module_data.paper_exposure
+      = _powf(module_data.film_fog + params.middle_grey, module_data.film_power) * white_grey_relation;
+
+      module_data.hue_preservation = _fminf(_fmaxf(0.01f * params.hue_preservation, 0.0f), 1.0f);
+      return module_data;
+
+}
+
+
+
+
+//DEFINE_UI_PARAMS(middle_grey, Middle Grey, DCTLUI_SLIDER_FLOAT, 0.4, 0.1, 0.4, 0.001)
+//DEFINE_UI_PARAMS(middle_grey_contrast, MidGrey Contrast, DCTLUI_SLIDER_FLOAT, 1, 0.1, 10.0, 0.001)
+//DEFINE_UI_PARAMS(contrast_skewness, Skew, DCTLUI_SLIDER_FLOAT, 0.14, -1.0, 1.0, 0.001)
+//DEFINE_UI_PARAMS(display_white_target, White Point, DCTLUI_SLIDER_FLOAT, 96, 50, 100, 1)
+//DEFINE_UI_PARAMS(display_black_target, Black Point, DCTLUI_SLIDER_FLOAT, 0.02, 0.0, 0.1, 0.001)
+//DEFINE_UI_PARAMS(sat, Chroma , DCTLUI_SLIDER_FLOAT, 1.1, 0.0, 2, 0.001)
+
+DEFINE_UI_PARAMS(den, denstiy , DCTLUI_SLIDER_FLOAT, 1, 0, 2, 0.001)
+
+// Rotate hue flight on inset
+DEFINE_UI_PARAMS(rot_r, 2499 Rotate Hue R ╮, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_g, G ┤, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_b, B ╯, DCTLUI_SLIDER_FLOAT, 0.23, -0.5, 0.5, 0.1)
+
+DEFINE_UI_PARAMS(rot_rh, Highlight Rotate Hue R ╮, DCTLUI_SLIDER_FLOAT, 0.2, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_gh, G ┤, DCTLUI_SLIDER_FLOAT, 0.3, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_bh, B ╯, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.1)
+
+DEFINE_UI_PARAMS(look, Look, DCTLUI_COMBO_BOX, 0, {Basecon,Hcon}, {Base Contrast, High Contrast})
+DEFINE_UI_PARAMS(input, Input, DCTLUI_COMBO_BOX, 0, {DI,film2499}, {Davinci Intermediate, 2499 LOG})
+DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 0, {Bt1886,p3d65,Log2499}, {BT.1886, P3D65 G2.4,2499 LOG})
+
+
+
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+
+  //CONSTANTS
+
+  float middle_grey =0.4;
+  float middle_grey_contrast=1;
+  float contrast_skewness= 0.14;
+  float display_white_target=96;
+  float display_black_target=0.02;
+
+    dt_iop_sigmoid_params_v2_t params;
+    params.middle_grey = middle_grey;
+    params.middle_grey_contrast = middle_grey_contrast; 
+    params.contrast_skewness = contrast_skewness;
+    params.display_white_target = display_white_target;
+    params.display_black_target = display_black_target*100;
+    params.hue_preservation = 0;
+    float gamma = 1/2.4;
+    float sat = 1.1;
+    //float den = 1;
+    dt_iop_sigmoid_data_t params_sig = commit_params(params);
+    float3 weights = make_float3(0.221425465f, 0.400280101f, 0.378294434f);
+    
+    float3 rgb = make_float3(p_R, p_G, p_B);
+    float3 log2499;
+//
+    
+
+    switch (input) {
+            case DI:
+        rgb.x = oetf_davinci_intermediate(rgb.x,1);
+        rgb.y = oetf_davinci_intermediate(rgb.y,1);
+        rgb.z = oetf_davinci_intermediate(rgb.z,1);
+
+        rgb = vdot(matrix_davinciwg_to_xyz, rgb);
+        rgb = vdot(matrix_xyz_to_rec709, rgb);
+
+        float satm = satmask(rgb);
+
+        satm = _powf(1/(1+0.5*satm*satm),den);
+
+        //add density
+        rgb *= satm; 
+
+        rgb = NonLinearGamutMapping(rgb,0.08f,0.0f,1.0f,1,0);
+
+        float3 in = rgb;
+
+        float lum = lumMask(rgb,weights.x, weights.y, weights.z);
+        float desatlum = desat(rgb,weights.x, weights.y, weights.z,0.7f,0.18f,0.995f);
+
+        float3x3 M1 = simpleHueMatrix(rot_rh,rot_gh,rot_bh);
+        float3x3 M2 = simpleHueMatrix(rot_r,rot_g,rot_b);
+
+        float3 rgbcopy = mult_f3_f33(rgb,M1);
+
+        rgb = _mix(rgb,rgbcopy,lum);
+        
+        rgb = mult_f3_f33(rgb,M2);
+
+        float norm = weights.x*rgb.x+weights.y*rgb.y + weights.z*rgb.z;
+
+        rgb = _mix(make_float3(norm,norm,norm),rgb,desatlum);
+
+        rgb = Energy709Correction(in,rgb);
+        
+        log2499.x = oetf_davinci_intermediate(rgb.x,0);
+        log2499.y = oetf_davinci_intermediate(rgb.y,0);
+        log2499.z = oetf_davinci_intermediate(rgb.z,0);
+
+        break;
+
+            case film2499:
+
+              log2499 = rgb;
+
+          break;
+      }
+        
+        log2499.x =_fmaxf(0,log2499.x);
+        log2499.y =_fmaxf(0,log2499.y);
+        log2499.z =_fmaxf(0,log2499.z); 
+
+        rgb.x = oetf_davinci_intermediate(log2499.x,1);
+        rgb.y = oetf_davinci_intermediate(log2499.y,1);
+        rgb.z = oetf_davinci_intermediate(log2499.z,1);
+
+
+        rgb.x =_fmaxf(0,rgb.x);
+        rgb.y =_fmaxf(0,rgb.y);
+        rgb.z =_fmaxf(0,rgb.z); 
+
+        float lum;
+
+
+
+
+    switch (look) {
+            case Basecon:
+
+        rgb.x = _powf(1.01705064379*rgb.x/(rgb.x+1.02158017445),1.1);
+        rgb.y = _powf(1.01705064379*rgb.y/(rgb.y+1.02158017445),1.1);
+        rgb.z = _powf(1.01705064379*rgb.z/(rgb.z+1.02158017445),1.1);
+
+        rgb.x = rgb.x*rgb.x/(rgb.x+0.01);
+        rgb.y = rgb.y*rgb.y/(rgb.y+0.01);
+        rgb.z = rgb.z*rgb.z/(rgb.z+0.01);
+
+        lum = weights.x*rgb.x+weights.y*rgb.y + weights.z*rgb.z;
+
+        rgb.x = (rgb.x - lum)*1.2+lum;
+        rgb.y = (rgb.y - lum)*1.2+lum;
+        rgb.z = (rgb.z - lum)*1.2+lum;
+
+
+            break;
+          case Hcon:
+
+        rgb = rgb*middle_grey/0.18;
+        
+        float rendering_RGB[3] = {rgb.x,rgb.y,rgb.z};
+
+        rendering_RGB[0] = _generalized_loglogistic_sigmoid(rendering_RGB[0],params_sig.white_target,params_sig.paper_exposure,params_sig.film_fog,params_sig.film_power,params_sig.paper_power);
+        rendering_RGB[1] = _generalized_loglogistic_sigmoid(rendering_RGB[1],params_sig.white_target,params_sig.paper_exposure,params_sig.film_fog,params_sig.film_power,params_sig.paper_power);
+        rendering_RGB[2] = _generalized_loglogistic_sigmoid(rendering_RGB[2],params_sig.white_target,params_sig.paper_exposure,params_sig.film_fog,params_sig.film_power,params_sig.paper_power);
+        
+        rgb = make_float3(rendering_RGB[0],rendering_RGB[1],rendering_RGB[2]);
+        
+        rgb.x = _powf(rgb.x,2.4);
+        rgb.y = _powf(rgb.y,2.4);
+        rgb.z = _powf(rgb.z,2.4);
+        
+        lum = weights.x*rgb.x+weights.y*rgb.y + weights.z*rgb.z;
+
+        rgb.x = (rgb.x - lum)*sat+lum;
+        rgb.y = (rgb.y - lum)*sat+lum;
+        rgb.z = (rgb.z - lum)*sat+lum;
+
+            break;
+}
+
+
+
+        float3 out;
+
+    switch (output) {
+            case Bt1886:
+      
+      rgb = NonLinearGamutMapping(rgb,0.01f,0.0f,1.0f,0,0);
+      out = rgb;
+      out.x =_fmaxf(0,out.x);
+      out.y =_fmaxf(0,out.y);
+      out.z =_fmaxf(0,out.z);
+      out.x = _powf(out.x,gamma);
+      out.y = _powf(out.y,gamma);
+      out.z = _powf(out.z,gamma);  
+        
+        break;
+            case p3d65:
+        rgb = vdot(matrix_rec709_to_xyz, rgb);
+        rgb = vdot(inv_f33(matrix_p3d65_to_xyz), rgb);
+      out = NonLinearGamutMapping(rgb,0.01f,0.0f,1.0f,0,0);
+      out = EnergyP3Correction(out,rgb);
+      out.x =_fmaxf(0,out.x);
+      out.y =_fmaxf(0,out.y);
+      out.z =_fmaxf(0,out.z);
+      out.x = _powf(out.x,gamma);
+      out.y = _powf(out.y,gamma);
+      out.z = _powf(out.z,gamma);  
+          
+          break;
+
+        case Log2499:
+
+          out = log2499;
+          break;
+      }
+
+
+
+    return out;
+}
+
+
