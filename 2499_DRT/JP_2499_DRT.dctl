@@ -314,7 +314,7 @@ __DEVICE__ float3 moment_2_rec709(float3 hma) {
 
 __DEVICE__ float _generalized_loglogistic_sigmoid(float value,float magnitude,float paper_exp,float film_fog,float film_power,float paper_power) {
 
-    float clamped_value = _fmaxf(value,0.0f);
+    //float clamped_value = _fmaxf(value,0.0f);
     //float film_response = _powf(film_fog+clamped_value,film_power);
     float film_response = _powf(film_fog+value,film_power);
     float paper_response = magnitude*_powf(film_response/(paper_exp+film_response),paper_power);
@@ -427,9 +427,8 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     float3 log2499;
 //
     
+    if(input==DI) {
 
-    switch (input) {
-            case DI:
         rgb.x = oetf_davinci_intermediate(rgb.x,1);
         rgb.y = oetf_davinci_intermediate(rgb.y,1);
         rgb.z = oetf_davinci_intermediate(rgb.z,1);
@@ -470,13 +469,12 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         log2499.y = oetf_davinci_intermediate(rgb.y,0);
         log2499.z = oetf_davinci_intermediate(rgb.z,0);
 
-        break;
 
-            case film2499:
+      } else if (input==film2499){
+
 
               log2499 = rgb;
 
-          break;
       }
         
         log2499.x =_fmaxf(0,log2499.x);
@@ -582,5 +580,8 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     return out;
 }
+
+
+
 
 
