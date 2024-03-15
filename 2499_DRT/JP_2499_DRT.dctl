@@ -508,9 +508,9 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
         lum = weights.x*rgb.x+weights.y*rgb.y + weights.z*rgb.z;
 
-        rgb.x = (rgb.x - lum)*1.2+lum;
-        rgb.y = (rgb.y - lum)*1.2+lum;
-        rgb.z = (rgb.z - lum)*1.2+lum;
+        rgb.x = (rgb.x - lum)*1.15+lum;
+        rgb.y = (rgb.y - lum)*1.15+lum;
+        rgb.z = (rgb.z - lum)*1.15+lum;
 
 
             break;
