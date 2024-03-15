@@ -498,13 +498,13 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     switch (look) {
             case Basecon:
 
-        rgb.x = _powf(1.01705064379*rgb.x/(rgb.x+1.02158017445),1.1);
-        rgb.y = _powf(1.01705064379*rgb.y/(rgb.y+1.02158017445),1.1);
-        rgb.z = _powf(1.01705064379*rgb.z/(rgb.z+1.02158017445),1.1);
+        rgb.x = 1.0471037624f*_powf(rgb.x/(rgb.x+0.9198582542f),1.15f);
+        rgb.y = 1.0471037624f*_powf(rgb.y/(rgb.y+0.9198582542f),1.15f);
+        rgb.z = 1.0471037624f*_powf(rgb.z/(rgb.z+0.9198582542f),1.15f);
 
-        rgb.x = rgb.x*rgb.x/(rgb.x+0.01);
-        rgb.y = rgb.y*rgb.y/(rgb.y+0.01);
-        rgb.z = rgb.z*rgb.z/(rgb.z+0.01);
+        rgb.x = rgb.x*rgb.x/(rgb.x+0.04f);
+        rgb.y = rgb.y*rgb.y/(rgb.y+0.04f);
+        rgb.z = rgb.z*rgb.z/(rgb.z+0.04f);
 
         lum = weights.x*rgb.x+weights.y*rgb.y + weights.z*rgb.z;
 
