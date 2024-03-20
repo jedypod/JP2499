@@ -369,17 +369,42 @@ __DEVICE__ dt_iop_sigmoid_data_t commit_params(dt_iop_sigmoid_params_v2_t params
       module_data.hue_preservation = _fminf(_fmaxf(0.01f * params.hue_preservation, 0.0f), 1.0f);
       return module_data;
 
+// Calculate a matrix that separately inset each primary
+__DEVICE__ float3x3 simpleInsetMatrix( float red,float green,float blue,int inv) {
+
+  float3 white = make_float3(1,1,1);
+  
+  float gain_coef = 1 + red + green + blue;
+
+  float3 redcoeff = make_float3(1+red,green,blue)/gain_coef;
+  float3 greencoeff = make_float3(red,1+green,blue)/gain_coef;
+  float3 bluecoeff = make_float3(red,green,1+blue)/gain_coef;
+
+  float3x3 M = make_float3x3(redcoeff,greencoeff,bluecoeff);
+
+  M = inv?inv_f33(M):M;
+
+return M;
+}
+
+  __DEVICE__ float3 maxf3(float b, float3 a) {
+  // For each component of float3 a, return max of component and float b
+  return make_float3(_fmaxf(a.x, b), _fmaxf(a.y, b), _fmaxf(a.z, b));
+}
+
+  __DEVICE__ float3 pow3(float b, float3 a,int inv) {
+
+    b = inv? b:1/b;
+  
+  return make_float3(_powf(a.x,b), _powf(a.y,b), _powf(a.z,b));
 }
 
 
 
+DEFINE_UI_PARAMS(rsat, Red Purity , DCTLUI_SLIDER_FLOAT, 0.458, 0.0, 1, 0.001)
+DEFINE_UI_PARAMS(gsat, Green Purity , DCTLUI_SLIDER_FLOAT, 0.752, 0.0, 1, 0.001)
+DEFINE_UI_PARAMS(bsat, Blue Purity , DCTLUI_SLIDER_FLOAT, 0.285, 0.0, 1, 0.001)
 
-//DEFINE_UI_PARAMS(middle_grey, Middle Grey, DCTLUI_SLIDER_FLOAT, 0.4, 0.1, 0.4, 0.001)
-//DEFINE_UI_PARAMS(middle_grey_contrast, MidGrey Contrast, DCTLUI_SLIDER_FLOAT, 1, 0.1, 10.0, 0.001)
-//DEFINE_UI_PARAMS(contrast_skewness, Skew, DCTLUI_SLIDER_FLOAT, 0.14, -1.0, 1.0, 0.001)
-//DEFINE_UI_PARAMS(display_white_target, White Point, DCTLUI_SLIDER_FLOAT, 96, 50, 100, 1)
-//DEFINE_UI_PARAMS(display_black_target, Black Point, DCTLUI_SLIDER_FLOAT, 0.02, 0.0, 0.1, 0.001)
-//DEFINE_UI_PARAMS(sat, Chroma , DCTLUI_SLIDER_FLOAT, 1.1, 0.0, 2, 0.001)
 
 DEFINE_UI_PARAMS(den, denstiy , DCTLUI_SLIDER_FLOAT, 1, 0, 2, 0.001)
 
@@ -402,13 +427,14 @@ DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 0, {Bt1886,p3d65,Log2499}, {B
 __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
 {
 
-  //CONSTANTS
+    
+    //Parameters used for the High Contrast Look Sigmoid
 
-  float middle_grey =0.4;
-  float middle_grey_contrast=1;
-  float contrast_skewness= 0.14;
-  float display_white_target=96;
-  float display_black_target=0.02;
+    float middle_grey = 0.4;
+    float middle_grey_contrast=1;
+    float contrast_skewness= 0.14;
+    float display_white_target=96;
+    float display_black_target=0.02;
 
     dt_iop_sigmoid_params_v2_t params;
     params.middle_grey = middle_grey;
@@ -417,16 +443,22 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     params.display_white_target = display_white_target;
     params.display_black_target = display_black_target*100;
     params.hue_preservation = 0;
-    float gamma = 1/2.4;
-    float sat = 1.1;
-    //float den = 1;
     dt_iop_sigmoid_data_t params_sig = commit_params(params);
+
+  //power used for the display encoding of the image
+    float power = 2.4;
+
+
+  // These weights are found by the average of white balanced XYZ values for rec709, they can be calculated from the rec709 to XYZ matrix,I see them as energy weights
     float3 weights = make_float3(0.221425465f, 0.400280101f, 0.378294434f);
-    
+  
     float3 rgb = make_float3(p_R, p_G, p_B);
+
+
     float3 log2499;
-//
-    
+
+  // For simplicity this DCTL expects Davinci Wide Gamut- Davinci Intermediate, any other input can be converted using a CST into Davinci Intermediate log, 
+  // not need to do any gamut or tone mapping of any kind
     if(input==DI) {
 
         rgb.x = oetf_davinci_intermediate(rgb.x,1);
@@ -436,64 +468,84 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         rgb = vdot(matrix_davinciwg_to_xyz, rgb);
         rgb = vdot(matrix_xyz_to_rec709, rgb);
 
+        //calculates "saturation" using a mcAdams moment space
         float satm = satmask(rgb);
 
+        //using the sat mask I create a very smooth function that can be used to multiply rgb ,more saturated gets more affected, close to achromatic stays basically intact
+        // for best results the mask should be calculated before any gamut mapping
         satm = _powf(1/(1+0.5*satm*satm),den);
 
-        //add density
+        //add density by multiply by rgb
         rgb *= satm; 
+
+
+        /* 
+        inspired by Jeds Smith OpenDRT gamut mapping, using a norm to divide rgb , those ration are then smoothly compressed to remove zeros, this is not chromaticity linear,
+        for me it seems to be a better option than to keep it chr linear,
+        using weights to find the ratio of energy before and after, this ratio has could be negative if the origin values are extremely chromatic, I use smooth toe operation to bring those values to positve 
+        multiply the final energy ratio by the gamut mapped rgb
+        */
+
 
         rgb = NonLinearGamutMapping(rgb,0.08f,0.0f,1.0f,1,0);
 
+        //make a copy of rgb that will be needed to restore the energy after the following operations
         float3 in = rgb;
 
+        //Again using the energy weights to find a norm,I use a sigmoid that to create a mask from zero to one 
         float lum = lumMask(rgb,weights.x, weights.y, weights.z);
+
+        // using the energy norm again and apply a sigmoid that will be used to desturate very emissive values
         float desatlum = desat(rgb,weights.x, weights.y, weights.z,0.7f,0.18f,0.995f);
 
+        // Calculate two hue matrices, these matrices can't create negatives as this would break things later one, one will be applied as it is 
+        // and the other one will use the mask apply it
         float3x3 M1 = simpleHueMatrix(rot_rh,rot_gh,rot_bh);
         float3x3 M2 = simpleHueMatrix(rot_r,rot_g,rot_b);
 
+        // apply the "highlight" hue matrix
         float3 rgbcopy = mult_f3_f33(rgb,M1);
 
+        // mix the pre-highlight matrix and the post-matrix using the lum 
         rgb = _mix(rgb,rgbcopy,lum);
         
+        // apply the overall  hue matrix
         rgb = mult_f3_f33(rgb,M2);
 
+        // Again!! calculate energy for the desturation of very emissive values
         float norm = weights.x*rgb.x+weights.y*rgb.y + weights.z*rgb.z;
 
+        //"hightlight" desat, this is a very small desat as the per-channel sigmoid latter on will also do it naturally, but this steps really helps for images that clip a little early
         rgb = _mix(make_float3(norm,norm,norm),rgb,desatlum);
 
+        //re-store the energy pre hue and desat operations
         rgb = Energy709Correction(in,rgb);
         
+        //encode using Davinci Intermidate curve only, some operations can look greate if applied in this state
         log2499.x = oetf_davinci_intermediate(rgb.x,0);
         log2499.y = oetf_davinci_intermediate(rgb.y,0);
         log2499.z = oetf_davinci_intermediate(rgb.z,0);
 
 
       } else if (input==film2499){
-
-
+        //this is for the case where the DCTl input is Davinci Intermediate 2499 encoding
               log2499 = rgb;
-
       }
-        
-        log2499.x =_fmaxf(0,log2499.x);
-        log2499.y =_fmaxf(0,log2499.y);
-        log2499.z =_fmaxf(0,log2499.z); 
+      
 
+
+        //decode the davinci encoding
         rgb.x = oetf_davinci_intermediate(log2499.x,1);
         rgb.y = oetf_davinci_intermediate(log2499.y,1);
         rgb.z = oetf_davinci_intermediate(log2499.z,1);
 
 
-        rgb.x =_fmaxf(0,rgb.x);
-        rgb.y =_fmaxf(0,rgb.y);
-        rgb.z =_fmaxf(0,rgb.z); 
-
-        float lum;
 
 
+        //for safety clip
+        rgb = maxf3(0,rgb);
 
+        //I can know map to display using per-chanell sigmoid, I have 2 options , basecon is exactly like the current one used in ACES2
 
     switch (look) {
             case Basecon:
@@ -506,82 +558,61 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         rgb.y = rgb.y*rgb.y/(rgb.y+0.04f);
         rgb.z = rgb.z*rgb.z/(rgb.z+0.04f);
 
-        lum = weights.x*rgb.x+weights.y*rgb.y + weights.z*rgb.z;
-
-        rgb.x = (rgb.x - lum)*1.15+lum;
-        rgb.y = (rgb.y - lum)*1.15+lum;
-        rgb.z = (rgb.z - lum)*1.15+lum;
-
+        //Add some purityfor preferential look
+        rgb = mult_f3_f33(rgb,simpleInsetMatrix(rsat/10,gsat/10,bsat/10,1));
 
             break;
+          
           case Hcon:
 
         rgb = rgb*middle_grey/0.18;
-        
         float rendering_RGB[3] = {rgb.x,rgb.y,rgb.z};
-
         rendering_RGB[0] = _generalized_loglogistic_sigmoid(rendering_RGB[0],params_sig.white_target,params_sig.paper_exposure,params_sig.film_fog,params_sig.film_power,params_sig.paper_power);
         rendering_RGB[1] = _generalized_loglogistic_sigmoid(rendering_RGB[1],params_sig.white_target,params_sig.paper_exposure,params_sig.film_fog,params_sig.film_power,params_sig.paper_power);
         rendering_RGB[2] = _generalized_loglogistic_sigmoid(rendering_RGB[2],params_sig.white_target,params_sig.paper_exposure,params_sig.film_fog,params_sig.film_power,params_sig.paper_power);
-        
         rgb = make_float3(rendering_RGB[0],rendering_RGB[1],rendering_RGB[2]);
         
-        rgb.x = _powf(rgb.x,2.4);
-        rgb.y = _powf(rgb.y,2.4);
-        rgb.z = _powf(rgb.z,2.4);
-        
-        lum = weights.x*rgb.x+weights.y*rgb.y + weights.z*rgb.z;
+        // The previous highcon sigmoid directly output Bt1886 image, which needs to be decoded to display linear
+        rgb = pow3(power,rgb,1);
 
-        rgb.x = (rgb.x - lum)*sat+lum;
-        rgb.y = (rgb.y - lum)*sat+lum;
-        rgb.z = (rgb.z - lum)*sat+lum;
+        //Add some purityfor preferential look
+        rgb = mult_f3_f33(rgb,simpleInsetMatrix(rsat/10,gsat/10,bsat/10,1));
 
             break;
-}
-
+      }
 
 
         float3 out;
 
+        //Encode for display
+
     switch (output) {
+            
             case Bt1886:
       
       rgb = NonLinearGamutMapping(rgb,0.01f,0.0f,1.0f,0,0);
-      out = rgb;
-      out.x =_fmaxf(0,out.x);
-      out.y =_fmaxf(0,out.y);
-      out.z =_fmaxf(0,out.z);
-      out.x = _powf(out.x,gamma);
-      out.y = _powf(out.y,gamma);
-      out.z = _powf(out.z,gamma);  
+      out = maxf3(0,rgb);
+      out = pow3(power,out,0); 
         
         break;
             case p3d65:
-        rgb = vdot(matrix_rec709_to_xyz, rgb);
-        rgb = vdot(inv_f33(matrix_p3d65_to_xyz), rgb);
+      rgb = vdot(matrix_rec709_to_xyz, rgb);
+      rgb = vdot(inv_f33(matrix_p3d65_to_xyz), rgb);
       out = NonLinearGamutMapping(rgb,0.01f,0.0f,1.0f,0,0);
-      out = EnergyP3Correction(out,rgb);
-      out.x =_fmaxf(0,out.x);
-      out.y =_fmaxf(0,out.y);
-      out.z =_fmaxf(0,out.z);
-      out.x = _powf(out.x,gamma);
-      out.y = _powf(out.y,gamma);
-      out.z = _powf(out.z,gamma);  
+      out = EnergyP3Correction(rgb,out);
+      out = maxf3(0,out);
+      out = pow3(power,out,0);  
           
           break;
 
         case Log2499:
 
-          out = log2499;
+      out = log2499;
+
           break;
       }
 
 
-
-    return out;
+return out;
 }
-
-
-
-
 
