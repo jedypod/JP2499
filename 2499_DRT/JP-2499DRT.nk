@@ -1,0 +1,712 @@
+set cut_paste_input [stack 0]
+push $cut_paste_input
+Group {
+ name film2499DRT
+ label "Expects rec709 linear"
+ selected true
+ xpos -38
+ ypos -79
+}
+ Input {
+  inputs 0
+  name Input1
+  xpos 0
+  ypos -221
+ }
+ Group {
+  name Rec709SphericalMoment
+  xpos 0
+  ypos -197
+  addUserKnob {20 User}
+  addUserKnob {4 direction M {forward inverse}}
+ }
+  Input {
+   inputs 0
+   name Input
+   xpos 0
+  }
+set N37152000 [stack 0]
+  Expression {
+   expr0 sin(r*2*pi)*g*b*2
+   expr1 b
+   expr2 cos(r*2*pi)*g*b*2
+   name moment_uv1
+   xpos 133
+   ypos 115
+  }
+  ColorMatrix {
+   matrix {
+       {0.26021 -0.02946 -0.23075}
+       {0.22143 0.40028 0.3783}
+       {0.13781 0.42831 -0.56612}
+     }
+   invert true
+   name uvtorec2
+   xpos 133
+   ypos 155
+  }
+push $N37152000
+  ColorMatrix {
+   matrix {
+       {0.26021 -0.02946 -0.23075}
+       {0.22143 0.40028 0.3783}
+       {0.13781 0.42831 -0.56612}
+     }
+   name uvtorec1
+   xpos -177
+   ypos 128
+  }
+  Expression {
+   temp_name0 l
+   temp_expr0 (r+g+b)/3
+   temp_name1 m
+   temp_expr1 sqrt((r-l)**2+(g-l)**2+(b-l)**2)
+   temp_name2 art
+   temp_expr2 atan2(r,b)
+   expr0 (art<0?art+2*pi:art)/(2*pi)
+   expr1 sqrt(r*r+b*b)/(2*g)
+   expr2 g
+   name xyz_moment2
+   xpos -177
+   ypos 176
+  }
+  Switch {
+   inputs 2
+   which {{parent.direction}}
+   name Inverse
+   xpos 0
+   ypos 300
+  }
+  Output {
+   name Output1
+   xpos 0
+   ypos 350
+  }
+ end_group
+ Expression {
+  expr2 b/(1+0.5*g*g)
+  name density
+  xpos 0
+  ypos -173
+ }
+ Group {
+  name Rec709SphericalMoment1
+  xpos 0
+  ypos -123
+  addUserKnob {20 User}
+  addUserKnob {4 direction M {forward inverse}}
+  direction inverse
+ }
+  Input {
+   inputs 0
+   name Input
+   xpos 0
+  }
+set N37150400 [stack 0]
+  Expression {
+   expr0 sin(r*2*pi)*g*b*2
+   expr1 b
+   expr2 cos(r*2*pi)*g*b*2
+   name moment_uv1
+   xpos 133
+   ypos 115
+  }
+  ColorMatrix {
+   matrix {
+       {0.26021 -0.02946 -0.23075}
+       {0.22143 0.40028 0.3783}
+       {0.13781 0.42831 -0.56612}
+     }
+   invert true
+   name uvtorec2
+   xpos 133
+   ypos 155
+  }
+push $N37150400
+  ColorMatrix {
+   matrix {
+       {0.26021 -0.02946 -0.23075}
+       {0.22143 0.40028 0.3783}
+       {0.13781 0.42831 -0.56612}
+     }
+   name uvtorec1
+   xpos -177
+   ypos 128
+  }
+  Expression {
+   temp_name0 l
+   temp_expr0 (r+g+b)/3
+   temp_name1 m
+   temp_expr1 sqrt((r-l)**2+(g-l)**2+(b-l)**2)
+   temp_name2 art
+   temp_expr2 atan2(r,b)
+   expr0 (art<0?art+2*pi:art)/(2*pi)
+   expr1 sqrt(r*r+b*b)/(2*g)
+   expr2 g
+   name xyz_moment2
+   xpos -177
+   ypos 176
+  }
+  Switch {
+   inputs 2
+   which {{parent.direction}}
+   name Inverse
+   xpos 0
+   ypos 300
+  }
+  Output {
+   name Output1
+   xpos 0
+   ypos 350
+  }
+ end_group
+ Group {
+  name Gamut_Map
+  xpos 0
+  ypos -60
+ }
+  Input {
+   inputs 0
+   name Input1
+   xpos 0
+  }
+  Dot {
+   name Dot2
+   xpos 34
+   ypos 24
+  }
+set N5631d800 [stack 0]
+  Dot {
+   name Dot5
+   xpos -236
+   ypos 24
+  }
+push $N5631d800
+  Expression {
+   temp_name0 mx
+   temp_expr0 max(r,g,b)
+   temp_name1 mx2
+   temp_expr1 (r+g+b)/3
+   expr0 mx==0?0:r/mx
+   expr1 mx==0?0:g/mx
+   expr2 mx==0?0:b/mx
+   expr3 mx
+   name max
+   xpos 196
+   ypos 21
+  }
+  Expression {
+   expr0 r>t0?r:(r-t0)*pow(pow((t0-r)/(t0-m),1/p)+1,-p)+t0
+   expr1 g>t0?g:(g-t0)*pow(pow((t0-g)/(t0-m),1/p)+1,-p)+t0
+   expr2 b>t0?b:(b-t0)*pow(pow((t0-b)/(t0-m),1/p)+1,-p)+t0
+   name PowerPToe1
+   label https://www.desmos.com/calculator/vbceracvcn
+   xpos 196
+   ypos 130
+   addUserKnob {20 Params}
+   addUserKnob {7 p}
+   p 0.08
+   addUserKnob {7 m R -1 0}
+   addUserKnob {7 t0}
+   t0 1
+  }
+  Expression {
+   expr0 r*a
+   expr1 g*a
+   expr2 b*a
+   expr3 1
+   name out
+   xpos 196
+   ypos 244
+  }
+  Dot {
+   name Dot4
+   xpos 34
+   ypos 247
+  }
+set N5631c400 [stack 0]
+  MergeExpression {
+   inputs 2
+   temp_name0 l1
+   temp_expr0 0.221425465*r+0.400280101*g+0.378294434*b
+   temp_name1 l2
+   temp_expr1 0.221425465*Ar+0.400280101*Ag+0.378294434*Ab
+   temp_name2 gain
+   temp_expr2 l2/l1
+   temp_name3 gain2
+   temp_expr3 2*l1/(sqrt(l1*l1+l2*l2)+l2)
+   expr0 l2
+   expr1 l1
+   expr2 1
+   name lumfix1
+   xpos -270
+   ypos 244
+  }
+  Expression {
+   channel0 {-rgba.red -rgba.green -rgba.blue none}
+   expr0 1-(1-(atan2(r,g)+(1-pi/4)))/(pi/4)
+   channel1 rgb
+   expr1 4*atan2(r,g)/pi
+   name atan
+   xpos -270
+   ypos 268
+  }
+  Expression {
+   channel0 {rgba.red rgba.green rgba.blue none}
+   expr0 r>t0?r:(r-t0)*pow(pow((t0-r)/(t0-m),1/p)+1,-p)+t0
+   channel2 {-rgba.red -rgba.green -rgba.blue none}
+   expr3 1
+   name PowerPToe3
+   label https://www.desmos.com/calculator/vbceracvcn
+   xpos -270
+   ypos 306
+   addUserKnob {20 Params}
+   addUserKnob {7 p}
+   p 0.16
+   addUserKnob {7 m R -1 0}
+   addUserKnob {7 t0}
+   t0 1
+  }
+  Expression {
+   channel0 rgb
+   expr0 tan(r*pi/4)
+   name backtoratio
+   xpos -270
+   ypos 350
+  }
+push $N5631c400
+  MergeExpression {
+   inputs 2
+   expr0 r*Ar
+   expr1 g*Ar
+   expr2 b*Ar
+   expr3 1
+   name fixlum
+   xpos 0
+   ypos 350
+  }
+  Output {
+   name Output1
+   selected true
+   xpos 0
+   ypos 422
+  }
+ end_group
+ Dot {
+  name Dot3
+  xpos 34
+  ypos -36
+ }
+set N56216400 [stack 0]
+ Expression {
+  temp_name0 l1
+  temp_expr0 0.221425465*r+0.400280101*g+0.378294434*b
+  channel0 rgba
+  expr0 l1
+  name WeightedSum1
+  xpos -173
+  ypos -39
+  addUserKnob {20 Params}
+  addUserKnob {7 rw R 0.05 0.6}
+  rw 0.25
+  addUserKnob {7 gw R 0.05 0.66}
+  gw {{1-(rw+bw)}}
+  addUserKnob {7 bw R 0.05 0.6}
+  bw 0.3
+ }
+set N56216000 [stack 0]
+ Dot {
+  name Dot7
+  xpos -249
+  ypos -36
+ }
+ Expression {
+  channel0 rgb
+  expr0 r
+  expr3 L0*exp(-b2*r)+L1*(1-exp(-b2*r))
+  name desat1
+  xpos -283
+  ypos 259
+  addUserKnob {20 User}
+  addUserKnob {7 L1}
+  L1 0.7
+  addUserKnob {7 L0}
+  L0 1
+  addUserKnob {7 a1}
+  a1 0.18
+  addUserKnob {7 a2}
+  a2 0.995
+  addUserKnob {7 b2}
+  b2 {{-log((a2-L1)/(L0-L1))/a1}}
+ }
+push $N56216400
+ Dot {
+  name Dot1
+  xpos 144
+  ypos -36
+ }
+ Dot {
+  name Dot2
+  xpos 144
+  ypos 155
+ }
+set N56215000 [stack 0]
+ Dot {
+  name Dot8
+  xpos 144
+  ypos 230
+ }
+push $N56215000
+push $N56216000
+ Expression {
+  temp_name0 ts0
+  temp_expr0 invert?(r+sqrt(r*(4*fl+r)))/2:(m*r/(r+s))**c
+  temp_name1 ts
+  temp_expr1 invert?(s*ts0**(1/c))/(m-ts0**(1/c))/r:(ts0**2/(ts0+fl))/r
+  channel0 rgba
+  expr0 min(1,r*ts*(100/Lp))
+  name ConstrainedTonescale1
+  label https://www.desmos.com/calculator/hglnae2ame
+  xpos -173
+  ypos 4
+  addUserKnob {20 Params}
+  addUserKnob {7 Lp R 100 1000}
+  Lp 100
+  addUserKnob {7 Lg +DISABLED R 7 25}
+  Lg {{gy*100}}
+  addUserKnob {7 c R 1 1.4}
+  c 1.1
+  addUserKnob {7 fl l flare R 0 0.02}
+  fl 0.01
+  addUserKnob {7 gb}
+  gb 0.12
+  addUserKnob {26 ""}
+  addUserKnob {7 px R 32 256}
+  px {{256*log(Lp)/log(100)-128}}
+  addUserKnob {7 py R 1 10}
+  py {{Lp/100}}
+  addUserKnob {7 gx}
+  gx 0.18
+  addUserKnob {7 gy}
+  gy {{11.696/100*(1+gb*log(py)/log(2))}}
+  addUserKnob {7 m0 R 1 4}
+  m0 {{(py+sqrt(py*(4*fl+py)))/2}}
+  addUserKnob {7 m R 1 4}
+  m {{m0**(1/c)*(s+px)/px}}
+  addUserKnob {7 s0 R 1 4}
+  s0 {{(gy+sqrt(gy*(4*fl+gy)))/2}}
+  addUserKnob {7 s R 1 4}
+  s {{(px*gx*(m0**(1/c)-s0**(1/c)))/(px*s0**(1/c)-gx*m0**(1/c))}}
+  addUserKnob {6 invert +STARTLINE}
+ }
+ Expression {
+  channel0 rgba
+  expr0 r**(1/dch)*(1-r)+r*r
+  name Power1
+  xpos -173
+  ypos 56
+  addUserKnob {20 Params}
+  addUserKnob {7 dch R 0.25 1.25}
+  dch 0.4
+ }
+ Expression {
+  channel0 {rgba.red rgba.green rgba.blue -rgba.alpha}
+  expr3 r
+  name complement1
+  xpos -173
+  ypos 102
+ }
+push $N56216400
+ ColorMatrix {
+  inputs 1+1
+  matrix {
+      {{1*sm.r} {red.g*sm.r} {red.b*sm.r}}
+      {{green.r*sm.g} {sm.g} {green.b*sm.g}}
+      {{blue.r*sm.b} {blue.g*sm.b} {sm.b}}
+    }
+  name simpleHuematrix2
+  xpos 0
+  ypos 102
+  addUserKnob {20 User}
+  addUserKnob {18 shift}
+  shift {0.2 0.3 0}
+  addUserKnob {6 shift_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 red}
+  red {1 {shift.g>0?shift.g:0} {shift.b<0?-shift.b:0}}
+  addUserKnob {6 red_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 green}
+  green {{shift.r>0?shift.r:0} 1 {shift.b>0?shift.b:0}}
+  addUserKnob {6 green_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 blue}
+  blue {{shift.r<0?-shift.r:0} {shift.g<0?-shift.g:0} 1}
+  addUserKnob {6 blue_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 white}
+  white {1 1 1}
+  addUserKnob {6 white_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 sm}
+  sm {{white.r/(1+red.g+red.b)} {white.g/(1+green.r+green.b)} {white.b/(1+blue.r+blue.g)}}
+  addUserKnob {6 sm_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+ }
+ MergeExpression {
+  inputs 2
+  temp_name0 lin
+  temp_expr0 0.221425465*Ar+0.400280101*Ag+0.378294434*Ab
+  temp_name1 lout
+  temp_expr1 0.221425465*r+0.400280101*g+0.378294434*b
+  temp_name2 m
+  temp_expr2 lout==0?0:lin/lout
+  expr0 r*m
+  expr1 g*m
+  expr2 b*m
+  name Lum_Correct
+  xpos 0
+  ypos 152
+ }
+ ColorMatrix {
+  matrix {
+      {{1*sm.r} {red.g*sm.r} {red.b*sm.r}}
+      {{green.r*sm.g} {sm.g} {green.b*sm.g}}
+      {{blue.r*sm.b} {blue.g*sm.b} {sm.b}}
+    }
+  name simpleHuematrix5
+  xpos 0
+  ypos 191
+  addUserKnob {20 User}
+  addUserKnob {18 shift}
+  shift {0.05 0.05 0.23}
+  addUserKnob {6 shift_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 red}
+  red {1 {shift.g>0?shift.g:0} {shift.b<0?-shift.b:0}}
+  addUserKnob {6 red_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 green}
+  green {{shift.r>0?shift.r:0} 1 {shift.b>0?shift.b:0}}
+  addUserKnob {6 green_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 blue}
+  blue {{shift.r<0?-shift.r:0} {shift.g<0?-shift.g:0} 1}
+  addUserKnob {6 blue_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 white}
+  white {1 1 1}
+  addUserKnob {6 white_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 sm}
+  sm {{white.r/(1+red.g+red.b)} {white.g/(1+green.r+green.b)} {white.b/(1+blue.r+blue.g)}}
+  addUserKnob {6 sm_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+ }
+ MergeExpression {
+  inputs 2
+  temp_name0 lin
+  temp_expr0 0.221425465*Ar+0.400280101*Ag+0.378294434*Ab
+  temp_name1 lout
+  temp_expr1 0.221425465*r+0.400280101*g+0.378294434*b
+  temp_name2 m
+  temp_expr2 lout==0?0:lin/lout
+  expr0 r*m
+  expr1 g*m
+  expr2 b*m
+  name Lum_Correct2
+  xpos 0
+  ypos 227
+ }
+ MergeExpression {
+  inputs 2
+  temp_name0 l
+  temp_expr0 0.221425465*r+0.400280101*g+0.378294434*b
+  temp_name1 l2
+  temp_expr1 Ar
+  temp_name2 l1
+  temp_expr2 l
+  expr0 l1*(1-Aa)+(Aa)*r
+  expr1 l1*(1-Aa)+(Aa)*g
+  expr2 l1*(1-Aa)+(Aa)*b
+  expr3 1
+  name avgdesat2
+  xpos 0
+  ypos 259
+  addUserKnob {20 User}
+  addUserKnob {7 p R 10 20}
+  p 10
+ }
+ Expression {
+  temp_name0 rl
+  temp_expr0 1.0471037624*(r/(r+0.9198582542))**1.15
+  temp_name1 gl
+  temp_expr1 1.0471037624*(g/(g+0.9198582542))**1.15
+  temp_name2 bl
+  temp_expr2 1.0471037624*(b/(b+0.9198582542))**1.15
+  expr0 rl*rl/(rl+0.04)
+  expr1 gl*gl/(gl+0.04)
+  expr2 bl*bl/(bl+0.04)
+  name DanieleCurve
+  xpos 0
+  ypos 300
+ }
+ ColorMatrix {
+  matrix {
+      {{red.r/gain.r} {red.g/gain.r} {red.b/gain.r}}
+      {{green.r/gain.g} {green.g/gain.g} {green.b/gain.g}}
+      {{blue.r/gain.b} {blue.g/gain.b} {blue.b/gain.b}}
+    }
+  invert true
+  name SimpleInset
+  xpos 0
+  ypos 361
+  addUserKnob {20 User}
+  addUserKnob {18 inset}
+  inset {0.0458 0.0752 0.0285}
+  addUserKnob {6 inset_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 red}
+  red {{1+inset.r} {inset.g} {inset.b}}
+  addUserKnob {6 red_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 green}
+  green {{inset.r} {1+inset.g} {inset.b}}
+  addUserKnob {6 green_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 blue}
+  blue {{inset.r} {inset.g} {1+inset.b}}
+  addUserKnob {6 blue_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 gain}
+  gain {{red.r+red.g+red.b} {green.r+green.g+green.b} {blue.r+blue.g+blue.b}}
+  addUserKnob {6 gain_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+ }
+ Group {
+  name Gamut_Map1
+  xpos 0
+  ypos 385
+ }
+  Input {
+   inputs 0
+   name Input1
+   xpos 0
+  }
+  Dot {
+   name Dot2
+   xpos 34
+   ypos 24
+  }
+set N40722800 [stack 0]
+  Dot {
+   name Dot5
+   xpos -236
+   ypos 24
+  }
+push $N40722800
+  Expression {
+   temp_name0 mx
+   temp_expr0 max(r,g,b)
+   temp_name1 mx2
+   temp_expr1 (r+g+b)/3
+   expr0 mx==0?0:r/mx
+   expr1 mx==0?0:g/mx
+   expr2 mx==0?0:b/mx
+   expr3 mx
+   name max
+   xpos 196
+   ypos 21
+  }
+  Expression {
+   expr0 r>t0?r:(r-t0)*pow(pow((t0-r)/(t0-m),1/p)+1,-p)+t0
+   expr1 g>t0?g:(g-t0)*pow(pow((t0-g)/(t0-m),1/p)+1,-p)+t0
+   expr2 b>t0?b:(b-t0)*pow(pow((t0-b)/(t0-m),1/p)+1,-p)+t0
+   name PowerPToe1
+   label https://www.desmos.com/calculator/vbceracvcn
+   selected true
+   xpos 196
+   ypos 130
+   addUserKnob {20 Params}
+   addUserKnob {7 p}
+   p 0.01
+   addUserKnob {7 m R -1 0}
+   addUserKnob {7 t0}
+   t0 1
+  }
+  Expression {
+   expr0 r*a
+   expr1 g*a
+   expr2 b*a
+   expr3 1
+   name out
+   xpos 196
+   ypos 244
+  }
+  Dot {
+   name Dot4
+   xpos 34
+   ypos 247
+  }
+set N40721400 [stack 0]
+  MergeExpression {
+   inputs 2
+   temp_name0 l1
+   temp_expr0 0.221425465*r+0.400280101*g+0.378294434*b
+   temp_name1 l2
+   temp_expr1 0.221425465*Ar+0.400280101*Ag+0.378294434*Ab
+   temp_name2 gain
+   temp_expr2 l2/l1
+   temp_name3 gain2
+   temp_expr3 2*l1/(sqrt(l1*l1+l2*l2)+l2)
+   expr0 l2
+   expr1 l1
+   expr2 1
+   name lumfix1
+   xpos -270
+   ypos 244
+  }
+  Expression {
+   channel0 {-rgba.red -rgba.green -rgba.blue none}
+   expr0 1-(1-(atan2(r,g)+(1-pi/4)))/(pi/4)
+   channel1 rgb
+   expr1 4*atan2(r,g)/pi
+   name atan
+   xpos -270
+   ypos 268
+  }
+  Expression {
+   channel0 {rgba.red rgba.green rgba.blue none}
+   expr0 r>t0?r:(r-t0)*pow(pow((t0-r)/(t0-m),1/p)+1,-p)+t0
+   channel2 {-rgba.red -rgba.green -rgba.blue none}
+   expr3 1
+   name PowerPToe3
+   label https://www.desmos.com/calculator/vbceracvcn
+   xpos -270
+   ypos 306
+   addUserKnob {20 Params}
+   addUserKnob {7 p}
+   p 0.16
+   addUserKnob {7 m R -1 0}
+   addUserKnob {7 t0}
+   t0 1
+  }
+  Expression {
+   channel0 rgb
+   expr0 tan(r*pi/4)
+   name backtoratio
+   xpos -270
+   ypos 350
+  }
+push $N40721400
+  MergeExpression {
+   inputs 2
+   expr0 r*Ar
+   expr1 g*Ar
+   expr2 b*Ar
+   expr3 1
+   name fixlum
+   xpos 0
+   ypos 350
+  }
+  Output {
+   name Output1
+   xpos 0
+   ypos 422
+  }
+ end_group
+ Colorspace {
+  colorspace_out 2.40
+  name Colorspace1
+  xpos 0
+  ypos 409
+ }
+ Output {
+  name Output1
+  xpos 0
+  ypos 489
+ }
+end_group
