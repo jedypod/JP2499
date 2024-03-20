@@ -26,6 +26,8 @@ __DEVICE__ float3x3 make_float3x3(float3 a, float3 b, float3 c) {
 #define matrix_xyz_to_rec709 make_float3x3(make_float3(3.2409699419f, -1.53738317757f, -0.498610760293f), make_float3(-0.969243636281f, 1.87596750151f, 0.041555057407f), make_float3(0.055630079697f, -0.203976958889f, 1.05697151424f))
 #define matrix_rec709_to_xyz make_float3x3(make_float3(0.412390917540f, 0.357584357262f, 0.180480793118f), make_float3(0.212639078498f, 0.715168714523f, 0.072192311287f), make_float3(0.019330825657f, 0.119194783270f, 0.950532138348f))
 #define matrix_p3d65_to_xyz make_float3x3(make_float3(0.486571133137f, 0.265667706728f, 0.198217317462f), make_float3(0.228974640369f, 0.691738605499f, 0.079286918044f), make_float3(-0.000000000000f, 0.045113388449, 1.043944478035f))
+
+
 // Multiply float3 vector a and 3x3 matrix m
 __DEVICE__ float3 mult_f3_f33(float3 a, float3x3 m) {
   return make_float3(
@@ -369,6 +371,8 @@ __DEVICE__ dt_iop_sigmoid_data_t commit_params(dt_iop_sigmoid_params_v2_t params
       module_data.hue_preservation = _fminf(_fmaxf(0.01f * params.hue_preservation, 0.0f), 1.0f);
       return module_data;
 
+}
+
 // Calculate a matrix that separately inset each primary
 __DEVICE__ float3x3 simpleInsetMatrix( float red,float green,float blue,int inv) {
 
@@ -615,4 +619,6 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
 return out;
 }
+
+
 
