@@ -405,17 +405,12 @@ return M;
 
 
 
-//Increase purity of the primaries individually, higher value is more pure,reducing the slider can help in case of very chromatic values breaking(99% of cases the default is smooth enough)
-DEFINE_UI_PARAMS(rsat, Red Purity , DCTLUI_SLIDER_FLOAT, 0.458, 0.0, 1, 0.001)
-DEFINE_UI_PARAMS(gsat, Green Purity , DCTLUI_SLIDER_FLOAT, 0.752, 0.0, 1, 0.001)
-DEFINE_UI_PARAMS(bsat, Blue Purity , DCTLUI_SLIDER_FLOAT, 0.285, 0.0, 1, 0.001)
-
 //Higher density value makes saturated values darker, lower values makes them brighter, achromatic is not affected
 DEFINE_UI_PARAMS(den, Denstiy , DCTLUI_SLIDER_FLOAT, 1, 0, 2, 0.001)
 
 // Rotate hue flight 
 //mainly rotate red primary, to the right is warmer/orange, and to the left colder/magenta
-DEFINE_UI_PARAMS(rot_r, 2499 Rotate Hue R ╮, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_r, Overall Rotate Hue R ╮, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
 //mainly rotate green primary, to the right is warmer/yellow, and to the left colder/cyan
 DEFINE_UI_PARAMS(rot_g, G ┤, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
 //mainly rotate blue primary, to the right is colder/cyan, and to the left is warmer/magenta
@@ -426,6 +421,11 @@ DEFINE_UI_PARAMS(rot_b, B ╯, DCTLUI_SLIDER_FLOAT, 0.23, -0.5, 0.5, 0.1)
 DEFINE_UI_PARAMS(rot_rh, Highlight Rotate Hue R ╮, DCTLUI_SLIDER_FLOAT, 0.2, -0.5, 0.5, 0.1)
 DEFINE_UI_PARAMS(rot_gh, G ┤, DCTLUI_SLIDER_FLOAT, 0.3, -0.5, 0.5, 0.1)
 DEFINE_UI_PARAMS(rot_bh, B ╯, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.1)
+
+//Increase purity of the primaries individually, higher value is more pure,reducing the slider can help in case of very chromatic values breaking(99% of cases the default is smooth enough)
+DEFINE_UI_PARAMS(rsat, Purity R ╮, DCTLUI_SLIDER_FLOAT, 0.458, 0.0, 1, 0.001)
+DEFINE_UI_PARAMS(gsat, G ┤ , DCTLUI_SLIDER_FLOAT, 0.752, 0.0, 1, 0.001)
+DEFINE_UI_PARAMS(bsat, B ╯ , DCTLUI_SLIDER_FLOAT, 0.285, 0.0, 1, 0.001)
 
 //The look only affects the sigmoid used to compress values, Base Contrast is close to Davinci Tone Mapping + OOTF. High Contrast is a more bold sigmoid, it has a slightly lifted black point,
 // a slightly lower white point, very similar middle grey as Base Contrast, and larger slope at middle grey
