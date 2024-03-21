@@ -405,23 +405,34 @@ return M;
 
 
 
+//Increase purity of the primaries individually, higher value is more pure,reducing the slider can help in case of very chromatic values breaking(99% of cases the default is smooth enough)
 DEFINE_UI_PARAMS(rsat, Red Purity , DCTLUI_SLIDER_FLOAT, 0.458, 0.0, 1, 0.001)
 DEFINE_UI_PARAMS(gsat, Green Purity , DCTLUI_SLIDER_FLOAT, 0.752, 0.0, 1, 0.001)
 DEFINE_UI_PARAMS(bsat, Blue Purity , DCTLUI_SLIDER_FLOAT, 0.285, 0.0, 1, 0.001)
 
+//Higher density value makes saturated values darker, lower values makes them brighter, achromatic is not affected
+DEFINE_UI_PARAMS(den, Denstiy , DCTLUI_SLIDER_FLOAT, 1, 0, 2, 0.001)
 
-DEFINE_UI_PARAMS(den, denstiy , DCTLUI_SLIDER_FLOAT, 1, 0, 2, 0.001)
-
-// Rotate hue flight on inset
+// Rotate hue flight 
+//mainly rotate red primary, to the right is warmer/orange, and to the left colder/magenta
 DEFINE_UI_PARAMS(rot_r, 2499 Rotate Hue R ╮, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
+//mainly rotate green primary, to the right is warmer/yellow, and to the left colder/cyan
 DEFINE_UI_PARAMS(rot_g, G ┤, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
+//mainly rotate blue primary, to the right is colder/cyan, and to the left is warmer/magenta
 DEFINE_UI_PARAMS(rot_b, B ╯, DCTLUI_SLIDER_FLOAT, 0.23, -0.5, 0.5, 0.1)
 
+
+//Highligh rotation direction is the same as the overall hue rotate, but it mainly affect bright values
 DEFINE_UI_PARAMS(rot_rh, Highlight Rotate Hue R ╮, DCTLUI_SLIDER_FLOAT, 0.2, -0.5, 0.5, 0.1)
 DEFINE_UI_PARAMS(rot_gh, G ┤, DCTLUI_SLIDER_FLOAT, 0.3, -0.5, 0.5, 0.1)
 DEFINE_UI_PARAMS(rot_bh, B ╯, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.1)
 
+//The look only affects the sigmoid used to compress values, Base Contrast is close to Davinci Tone Mapping + OOTF. High Contrast is a more bold sigmoid, it has a slightly lifted black point,
+// a slightly lower white point, very similar middle grey as Base Contrast, and larger slope at middle grey
 DEFINE_UI_PARAMS(look, Look, DCTLUI_COMBO_BOX, 0, {Basecon,Hcon}, {Base Contrast, High Contrast})
+
+//You can use this DCTL as an IDT plus ODT pipeline, one instance converts to 2499 LOG and then a second one converts LOG 2499 to P3d56 2.4 or BT1886,some grading operations are better dont like negative values,
+//2499 LOG doesn't have any negative so its the great step for those operations, for example blurring, sharpening, grain,halation ,split-toning, etc
 DEFINE_UI_PARAMS(input, Input, DCTLUI_COMBO_BOX, 0, {DI,film2499}, {Davinci Intermediate, 2499 LOG})
 DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 0, {Bt1886,p3d65,Log2499}, {BT.1886, P3D65 G2.4,2499 LOG})
 
