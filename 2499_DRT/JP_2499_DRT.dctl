@@ -628,6 +628,8 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         // re-store the energy pre hue and desat operations
         rgb = Energy709Correction(in, rgb);
 
+        rgb = maxf3(0, rgb);
+
         // encode using Davinci Intermidate curve only, some operations can look greate if applied in this state
         log2499.x = oetf_davinci_intermediate(rgb.x, 0);
         log2499.y = oetf_davinci_intermediate(rgb.y, 0);
