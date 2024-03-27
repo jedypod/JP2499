@@ -1,12 +1,5 @@
 #line 2
 
-typedef struct {
-        float middle_grey, middle_grey_contrast, contrast_skewness, display_white_target, display_black_target, hue_preservation;
-} dt_iop_sigmoid_params_v2_t;
-
-typedef struct {
-        float white_target, black_target, paper_exposure, film_fog, film_power, paper_power, hue_preservation;
-} dt_iop_sigmoid_data_t;
 
 typedef struct {
         float3 x, y, z;
@@ -280,92 +273,15 @@ __DEVICE__ float satmask(float3 rgb) {
     return hma.y;
 }
 
-__DEVICE__ float rec709_limit(float3 rgb) {
-
-    float mn = _fminf(rgb.x, _fminf(rgb.y, rgb.z));
-    float mx = _fmaxf(rgb.x, _fmaxf(rgb.y, rgb.z));
-
-    rgb = rgb - mn;
-
-    rgb = safedivf3f(rgb, mx - mn);
-
-    rgb = rec709_2_moment(rgb);
-
-    return rgb.y;
-}
-
-__DEVICE__ float3 moment_2_rec709(float3 hma) {
-
-    float PI_LOCAL = _atan2f(1, 1) * 4;
-
-    float3 uav = make_float3(_sinf(hma.x * 2 * PI_LOCAL) * hma.y * hma.z * 2, hma.z, _cosf(hma.x * 2 * PI_LOCAL) * hma.y * hma.z * 2);
-
-    float3 rgb;
-
-    rgb.x = 3.36445469654322f * uav.x + uav.y - 0.703123835451371f * uav.z;
-    rgb.y = -1.53651187366526 * uav.x + uav.y + 1.2945086177787f * uav.z;
-    rgb.z = -0.343491205237832f * uav.x + uav.y - 0.958186241990173f * uav.z;
-
-    return rgb;
-}
 
 __DEVICE__ float
 _generalized_loglogistic_sigmoid(float value, float magnitude, float paper_exp, float film_fog, float film_power, float paper_power) {
 
-    // float clamped_value = _fmaxf(value,0.0f);
-    // float film_response = _powf(film_fog+clamped_value,film_power);
     float film_response = _powf(film_fog + value, film_power);
     float paper_response = magnitude * _powf(film_response / (paper_exp + film_response), paper_power);
     return isnan(paper_response) ? magnitude : paper_response;
 }
 
-__DEVICE__ dt_iop_sigmoid_data_t commit_params(dt_iop_sigmoid_params_v2_t params) {
-
-    dt_iop_sigmoid_data_t module_data;
-
-    const float ref_film_power = params.middle_grey_contrast;
-    const float ref_paper_power = 1.0f;
-    const float ref_magnitude = 1.0f;
-    const float ref_film_fog = 0.0f;
-    const float ref_paper_exposure =
-        _powf(ref_film_fog + params.middle_grey, ref_film_power) * ((ref_magnitude / params.middle_grey) - 1.0f);
-    const float delta = _expf(-6.0f);
-    const float ref_slope =
-        (_generalized_loglogistic_sigmoid(
-             params.middle_grey + delta, ref_magnitude, ref_paper_exposure, ref_film_fog, ref_film_power, ref_paper_power) -
-         _generalized_loglogistic_sigmoid(
-             params.middle_grey - delta, ref_magnitude, ref_paper_exposure, ref_film_fog, ref_film_power, ref_paper_power)) /
-        (2.0f / delta);
-
-    module_data.paper_power = _powf(5.0f, -params.contrast_skewness);
-
-    // Slope at low film power
-    const float temp_film_power = 1.0f;
-    const float temp_white_target = 0.01f * params.display_white_target;
-    const float temp_white_grey_relation = _powf(temp_white_target / params.middle_grey, 1.0f / module_data.paper_power) - 1.0f;
-    const float temp_paper_exposure = _powf(params.middle_grey, temp_film_power) * temp_white_grey_relation;
-    const float temp_slope =
-        (_generalized_loglogistic_sigmoid(
-             params.middle_grey + delta, temp_white_target, temp_paper_exposure, ref_film_fog, temp_film_power, module_data.paper_power) -
-         _generalized_loglogistic_sigmoid(
-             params.middle_grey - delta, temp_white_target, temp_paper_exposure, ref_film_fog, temp_film_power, module_data.paper_power)) /
-        (2.0f / delta);
-
-    module_data.film_power = ref_slope / temp_slope;
-    module_data.white_target = 0.01f * params.display_white_target;
-    module_data.black_target = 0.01f * params.display_black_target;
-
-    const float white_grey_relation = _powf(module_data.white_target / params.middle_grey, 1.0f / module_data.paper_power) - 1.0f;
-    const float white_black_relation = _powf(module_data.black_target / module_data.white_target, -1.0f / module_data.paper_power) - 1.0f;
-
-    module_data.film_fog =
-        params.middle_grey * _powf(white_grey_relation, 1.0f / module_data.film_power) /
-        (_powf(white_black_relation, 1.0f / module_data.film_power) - _powf(white_grey_relation, 1.0f / module_data.film_power));
-    module_data.paper_exposure = _powf(module_data.film_fog + params.middle_grey, module_data.film_power) * white_grey_relation;
-
-    module_data.hue_preservation = _fminf(_fmaxf(0.01f * params.hue_preservation, 0.0f), 1.0f);
-    return module_data;
-}
 
 // Calculate a matrix that separately inset each primary
 __DEVICE__ float3x3 simpleInsetMatrix(float red, float green, float blue, int inv) {
@@ -424,12 +340,6 @@ __DEVICE__ float3 pow3(float b, float3 a, int inv) {
     return make_float3(_powf(a.x, b), _powf(a.y, b), _powf(a.z, b));
 }
 
-// Safe power function raising float3 a to power float b
-__DEVICE__ float3 spowf3(float3 a, float b) {
-  return make_float3(_powf(a.x, b), _powf(a.y, b), _powf(a.z, b));
-}
-
-
 __DEVICE__ float3 eotf_pq(float3 rgb, int inverse) {
   /* Apply the ST-2084 PQ Forward or Inverse EOTF
       ITU-R Rec BT.2100-2 https://www.itu.int/rec/R-REC-BT.2100
@@ -447,11 +357,11 @@ __DEVICE__ float3 eotf_pq(float3 rgb, int inverse) {
 
   if (inverse == 1) {
     // rgb /= Lp;
-    rgb = spowf3(rgb, m1);
-    rgb = spowf3((c1 + c2*rgb)/(1.0f + c3*rgb), m2);
+    rgb = pow3(rgb, m1,1);
+    rgb = pow3((c1 + c2*rgb)/(1.0f + c3*rgb), m2,1);
   } else {
-    rgb = spowf3(rgb, 1.0f/m2);
-    rgb = spowf3((rgb - c1)/(c2 - c3*rgb), 1.0f/m1);
+    rgb = pow3(rgb, 1.0f/m2,1);
+    rgb = pow3((rgb - c1)/(c2 - c3*rgb), 1.0f/m1,1);
     // rgb *= Lp;
   }
   return rgb;
@@ -531,22 +441,6 @@ DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 0, {Bt1886, p3d65, Log2499, r
 
 __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
 
-    // Parameters used for the High Contrast Look Sigmoid
-
-    float middle_grey = 0.4;
-    float middle_grey_contrast = 1;
-    float contrast_skewness = 0.14;
-    float display_white_target = 96;
-    float display_black_target = 0.02;
-
-    dt_iop_sigmoid_params_v2_t params;
-    params.middle_grey = middle_grey;
-    params.middle_grey_contrast = middle_grey_contrast;
-    params.contrast_skewness = contrast_skewness;
-    params.display_white_target = display_white_target;
-    params.display_black_target = display_black_target * 100;
-    params.hue_preservation = 0;
-    dt_iop_sigmoid_data_t params_sig = commit_params(params);
 
     // power used for the display encoding of the image
     float power = 2.4;
@@ -635,6 +529,8 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         log2499.y = oetf_davinci_intermediate(rgb.y, 0);
         log2499.z = oetf_davinci_intermediate(rgb.z, 0);
 
+
+
     } else if (input == film2499) {
         // this is for the case where the DCTl input is Davinci Intermediate 2499 encoding
         log2499 = rgb;
@@ -660,27 +556,25 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
             break;
 
         case Hcon:
-            rgb = rgb * middle_grey / 0.18;
-            float rendering_RGB[3] = {rgb.x, rgb.y, rgb.z};
-            rendering_RGB[0] = _generalized_loglogistic_sigmoid(rendering_RGB[0],
-                                                                params_sig.white_target,
-                                                                params_sig.paper_exposure,
-                                                                params_sig.film_fog,
-                                                                params_sig.film_power,
-                                                                params_sig.paper_power);
-            rendering_RGB[1] = _generalized_loglogistic_sigmoid(rendering_RGB[1],
-                                                                params_sig.white_target,
-                                                                params_sig.paper_exposure,
-                                                                params_sig.film_fog,
-                                                                params_sig.film_power,
-                                                                params_sig.paper_power);
-            rendering_RGB[2] = _generalized_loglogistic_sigmoid(rendering_RGB[2],
-                                                                params_sig.white_target,
-                                                                params_sig.paper_exposure,
-                                                                params_sig.film_fog,
-                                                                params_sig.film_power,
-                                                                params_sig.paper_power);
-            rgb = make_float3(rendering_RGB[0], rendering_RGB[1], rendering_RGB[2]);
+            
+            rgb.x = _generalized_loglogistic_sigmoid(rgb.x*20/9,
+                                                    0.96,
+                                                    0.729882132439,
+                                                    0.0103651025286,
+                                                    1.12852042979,
+                                                    0.798259690532);
+            rgb.y = _generalized_loglogistic_sigmoid(rgb.y*20/9,
+                                                    0.96,
+                                                    0.729882132439,
+                                                    0.0103651025286,
+                                                    1.12852042979,
+                                                    0.798259690532);
+            rgb.z = _generalized_loglogistic_sigmoid(rgb.z*20/9 ,
+                                                    0.96,
+                                                    0.729882132439,
+                                                    0.0103651025286,
+                                                    1.12852042979,
+                                                    0.798259690532);
 
             // The previous highcon sigmoid directly output Bt1886 image, which needs to be decoded to display linear
             rgb = pow3(power, rgb, 1);
@@ -750,7 +644,3 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     return out;
 }
-
-
-
-
