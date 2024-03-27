@@ -184,7 +184,6 @@ __DEVICE__ float3 Energy709Correction(float3 pre, float3 post) {
     float preavg = weights.x * pre.x + weights.y * pre.y + weights.z * pre.z;
     float postavg = weights.x * post.x + weights.y * post.y + weights.z * post.z;
 
-    // float gain = safedivf(preavg,postavg);
     float gain = 4 * _atan2f(preavg, postavg) / PI_LOCAL;
     gain = powerptoe(gain, 0.16f, 0.0f, 1.0f);
     gain = _tanf(gain * PI_LOCAL / 4);
@@ -302,31 +301,34 @@ __DEVICE__ float3x3 simpleInsetMatrix(float red, float green, float blue, int in
 }
 
 
-  __DEVICE__ float3 DanieleCurve(float3 rgb,float m,float s,float g,float o,int inv) {
+__DEVICE__ float3 DanieleCurve(float3 rgb, float m, float s, float g, float o, int inv) {
 
+    if (inv == 1) {
+        rgb.x = 0.5 * (rgb.x + _sqrtf(rgb.x * rgb.x + rgb.x * 4 * o));
+        rgb.y = 0.5 * (rgb.y + _sqrtf(rgb.y * rgb.y + rgb.y * 4 * o));
+        rgb.z = 0.5 * (rgb.z + _sqrtf(rgb.z * rgb.z + rgb.z * 4 * o));
 
-  
-  if (inv == 1) {
-      rgb.x = 0.5*(rgb.x + _sqrtf(rgb.x*rgb.x+rgb.x*4*o));
-      rgb.y = 0.5*(rgb.y + _sqrtf(rgb.y*rgb.y+rgb.y*4*o));
-      rgb.z = 0.5*(rgb.z + _sqrtf(rgb.z*rgb.z+rgb.z*4*o));
+        g = 1 / g;
 
-      rgb.x = _powf(s*rgb.x/(m-rgb.x),1/g);
-      rgb.y = _powf(s*rgb.y/(m-rgb.y),1/g);
-      rgb.z = _powf(s*rgb.z/(m-rgb.z),1/g);
+        rgb.x = s * _powf(rgb.x / m, g) / (1 - _powf(rgb.x / m, g));
+        rgb.y = s * _powf(rgb.y / m, g) / (1 - _powf(rgb.y / m, g));
+        rgb.z = s * _powf(rgb.z / m, g) / (1 - _powf(rgb.z / m, g));
 
-    return rgb;
-  
-  } else {
-        rgb.x = (m*_powf(rgb.x/(rgb.x+s),g))*(m*_powf(rgb.x/(rgb.x+s),g))/((m*_powf(rgb.x/(rgb.x+s),g))+o);
-        rgb.y = (m*_powf(rgb.y/(rgb.y+s),g))*(m*_powf(rgb.y/(rgb.y+s),g))/((m*_powf(rgb.y/(rgb.y+s),g))+o);
-        rgb.z = (m*_powf(rgb.z/(rgb.z+s),g))*(m*_powf(rgb.z/(rgb.z+s),g))/((m*_powf(rgb.z/(rgb.z+s),g))+o);
-    return rgb;
-  }
-        
+        return rgb;
+
+    } else {
+        rgb.x = _powf(m * rgb.x / (rgb.x + s), g);
+        rgb.y = _powf(m * rgb.y / (rgb.y + s), g);
+        rgb.z = _powf(m * rgb.z / (rgb.z + s), g);
+
+        rgb.x = rgb.x*rgb.x/(rgb.x + o);
+        rgb.y = rgb.y*rgb.y/(rgb.y + o);
+        rgb.z = rgb.z*rgb.z/(rgb.z + o);
+        return rgb;
+    }
+
     return rgb;
 }
-
 
 __DEVICE__ float3 maxf3(float b, float3 a) {
     // For each component of float3 a, return max of component and float b
@@ -357,11 +359,11 @@ __DEVICE__ float3 eotf_pq(float3 rgb, int inverse) {
 
   if (inverse == 1) {
     // rgb /= Lp;
-    rgb = pow3(rgb, m1,1);
-    rgb = pow3((c1 + c2*rgb)/(1.0f + c3*rgb), m2,1);
+    rgb = pow3(m1,rgb,1);
+    rgb = pow3(m2,(c1 + c2*rgb)/(1.0f + c3*rgb),1);
   } else {
-    rgb = pow3(rgb, 1.0f/m2,1);
-    rgb = pow3((rgb - c1)/(c2 - c3*rgb), 1.0f/m1,1);
+    rgb = pow3(1.0f/m2,rgb,1);
+    rgb = pow3(1.0f/m1,(rgb - c1)/(c2 - c3*rgb),1);
     // rgb *= Lp;
   }
   return rgb;
