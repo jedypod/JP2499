@@ -2,21 +2,337 @@ set cut_paste_input [stack 0]
 push $cut_paste_input
 Group {
  name film2499DRT
- label "Expects rec709 linear"
+ label "Outputs Bt1886"
  selected true
- xpos -38
- ypos -79
+ xpos -53
+ ypos -191
+ addUserKnob {20 User}
+ addUserKnob {26 Overall l "Overall Hue Rotation"}
+ addUserKnob {41 gamut l "in gamut" T InGamut_to_XYZ.gamut}
+ addUserKnob {41 p l density T density.p}
+ addUserKnob {41 shift T simpleHuematrix2.shift}
+ addUserKnob {26 hhue l "Highlight Hue Rotation"}
+ addUserKnob {41 shift_1 l shift T simpleHuematrix5.shift}
+ addUserKnob {26 Purity}
+ addUserKnob {41 inset T SimpleInset.inset}
+ addUserKnob {4 Curve M {Base "High Contrast"}}
+ addUserKnob {41 which T Switch1.which}
 }
  Input {
   inputs 0
   name Input1
   xpos 0
-  ypos -221
+  ypos -505
  }
  Group {
-  name Rec709SphericalMoment
+  name InGamut_to_XYZ
+  tile_color 0x429940ff
   xpos 0
-  ypos -197
+  ypos -427
+  addUserKnob {20 InputGamut_to_XYZ_tab l InputGamut_to_XYZ}
+  addUserKnob {4 gamut l "in gamut" M {ACES ACEScg P3D65 Rec.2020 Rec.709 "Alexa WideGamut" "Red WideGamutRGB" "Sony SGamut3" "Filmlight E-Gamut" "DaVinci Wide Gamut" "" "" ""}}
+  gamut Rec.2020
+  addUserKnob {41 matrix T ColorMatrix.matrix}
+  addUserKnob {41 invert -STARTLINE T ColorMatrix.invert}
+ }
+  Input {
+   inputs 0
+   name Input
+   xpos 290
+   ypos -610
+  }
+  Dot {
+   name Dot1
+   xpos 324
+   ypos -546
+  }
+set N55016800 [stack 0]
+  ColorMatrix {
+   matrix {
+       {{"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"}}
+       {{"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"}}
+       {{"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"}}
+     }
+   name ColorMatrix
+   xpos 290
+   ypos -370
+  }
+  Output {
+   name Output
+   xpos 290
+   ypos -250
+  }
+push $N55016800
+  Dot {
+   name Dot391
+   label " *RGB to XYZ D65 CAT: XYZ Scaling"
+   xpos 434
+   ypos -546
+  }
+set N55015c00 [stack 0]
+  ColorMatrix {
+   matrix {
+       {0.7006223202 0.1487748027 0.101058729}
+       {0.2741184831 0.8736317754 -0.1477504224}
+       {-0.09896290302 -0.1378953159 1.325916052}
+     }
+   name ColorMatrix30
+   label "DaVinci WG to XYZ D65"
+   xpos 1390
+   ypos -466
+  }
+push $N55015c00
+  ColorMatrix {
+   matrix {
+       {0.705396831 0.1640413404 0.08101775497}
+       {0.2801307142 0.8202067018 -0.1003373787}
+       {-0.1037815139 -0.07290726155 1.265746593}
+     }
+   name ColorMatrix29
+   label "Filmlight E-Gamut to XYZ D65"
+   xpos 1280
+   ypos -466
+  }
+push $N55015c00
+  ColorMatrix {
+   matrix {
+       {0.5990839005 0.2489254922 0.1024464965}
+       {0.2150758207 0.8850684166 -0.1001443192}
+       {-0.03206584975 -0.02765838802 1.148782015}
+     }
+   name ColorMatrix31
+   label "SonySGamut3 to XYZ D65"
+   xpos 1170
+   ypos -465
+  }
+push $N55015c00
+  ColorMatrix {
+   matrix {
+       {0.735275209 0.06860940903 0.1465712786}
+       {0.2866940796 0.8429790735 -0.1296732426}
+       {-0.07968084514 -0.3473432064 1.516081929}
+     }
+   name ColorMatrix22
+   label "REDWideGamutRGB to XYZ D65"
+   xpos 1060
+   ypos -466
+  }
+push $N55015c00
+  ColorMatrix {
+   matrix {
+       {0.6380076408 0.2147038132 0.09774445742}
+       {0.2919537723 0.8238408566 -0.1157948226}
+       {0.002798279049 -0.06703422219 1.153293848}
+     }
+   name ColorMatrix21
+   label "Arri AlexaWideGamut to XYZ D65"
+   xpos 950
+   ypos -466
+  }
+push $N55015c00
+  ColorMatrix {
+   matrix {
+       {0.4123909175 0.3575843573 0.1804807931}
+       {0.2126390785 0.7151687145 0.07219231129}
+       {0.01933082566 0.1191947833 0.9505321383}
+     }
+   name ColorMatrix18
+   label "Rec709 to XYZ D65"
+   xpos 840
+   ypos -466
+  }
+push $N55015c00
+  ColorMatrix {
+   matrix {
+       {0.6369581223 0.1446169168 0.1688809693}
+       {0.2627002299 0.6779981256 0.05930171534}
+       {4.99410725e-17 0.02807269618 1.060985088}
+     }
+   name ColorMatrix17
+   label "Rec2020 to XYZ D65"
+   xpos 730
+   ypos -466
+  }
+push $N55015c00
+  ColorMatrix {
+   matrix {
+       {0.4865711331 0.2656677067 0.1982173175}
+       {0.2289746404 0.6917386055 0.07928691804}
+       {-3.972076965e-17 0.04511338845 1.043944478}
+     }
+   name ColorMatrix16
+   label "P3D65 to XYZ D65"
+   xpos 620
+   ypos -466
+  }
+push $N55015c00
+  ColorMatrix {
+   matrix {
+       {0.6609312296 0.1336961389 0.1558285803}
+       {0.2722287476 0.6740817428 0.05368950963}
+       {-0.006018006243 0.004383686464 1.090692043}
+     }
+   name ColorMatrix1
+   label "ACEScg to XYZ D65"
+   xpos 510
+   ypos -466
+  }
+push $N55015c00
+  ColorMatrix {
+   matrix {
+       {0.9503623843 0 9.346324805e-05}
+       {0.3439664543 0.728166163 -0.07213254273}
+       {0 0 1.089057803}
+     }
+   name ColorMatrix2
+   label "ACES to XYZ D65"
+   xpos 400
+   ypos -466
+  }
+  Switch {
+   inputs 10
+   which {{gamut}}
+   name SwitchGamut
+   xpos 400
+   ypos -370
+  }
+ end_group
+ Group {
+  name XYZ_to_DisplayGamut
+  tile_color 0x425440ff
+  xpos 0
+  ypos -368
+  addUserKnob {20 XYZ_to_DisplayGamut_tab l XYZ_to_DisplayGamut}
+  addUserKnob {4 gamut l "display gamut" t "Choose the target display device chromaticities." M {Rec.2020 "P3 D65" "P3 D60" "P3 DCI" Rec.709 "DCDM X'Y'Z'"}}
+  gamut Rec.709
+  addUserKnob {41 matrix T ColorMatrix.matrix}
+  addUserKnob {41 invert -STARTLINE T ColorMatrix.invert}
+ }
+  Input {
+   inputs 0
+   name Input
+   xpos 290
+   ypos -580
+  }
+  Dot {
+   name Dot391
+   label " "
+   xpos 324
+   ypos -516
+  }
+set N55fb5800 [stack 0]
+  ColorMatrix {
+   matrix {
+       {{"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"}}
+       {{"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"}}
+       {{"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"} {"SwitchGamut.input\[value SwitchGamut.which].matrix"}}
+     }
+   name ColorMatrix
+   xpos 290
+   ypos -399
+  }
+  Output {
+   name Output
+   xpos 290
+   ypos -310
+  }
+push $N55fb5800
+  Dot {
+   name Dot1
+   label " XYZ D65 to *RGB CAT: XYZ Scaling"
+   xpos 434
+   ypos -516
+  }
+set N55fb4c00 [stack 0]
+  ColorMatrix {
+   matrix {
+       {1 0 0}
+       {0 1 0}
+       {0 0 1}
+     }
+   name ColorMatrix4
+   label "XYZ D65 to XYZ E"
+   xpos 950
+   ypos -465
+  }
+push $N55fb4c00
+  ColorMatrix {
+   matrix {
+       {3.240968943 -1.537382722 -0.4986106157}
+       {-0.9692435861 1.875967264 0.04155508429}
+       {0.05563007668 -0.2039769441 1.056971431}
+     }
+   name ColorMatrix2
+   label "XYZ D65 to Rec709"
+   xpos 840
+   ypos -465
+  }
+push $N55fb4c00
+  ColorMatrix {
+   matrix {
+       {2.72539258 -1.01800251 -0.4401629865}
+       {-0.795167923 1.689731836 0.02264717408}
+       {0.04124189168 -0.08763902634 1.100929379}
+     }
+   name ColorMatrix12
+   label "XYZ D65 to P3DCI"
+   xpos 730
+   ypos -465
+  }
+push $N55fb4c00
+  ColorMatrix {
+   matrix {
+       {2.40274024 -0.8974836469 -0.3880532086}
+       {-0.8325793743 1.769231319 0.02371269651}
+       {0.03882337734 -0.0824996829 1.036368608}
+     }
+   name ColorMatrix11
+   label "XYZ D65 to P3D60"
+   xpos 620
+   ypos -465
+  }
+push $N55fb4c00
+  ColorMatrix {
+   matrix {
+       {2.493495464 -0.9313831329 -0.4027105868}
+       {-0.8294886947 1.762663484 0.02362468652}
+       {0.03584581986 -0.07617236674 0.9568843246}
+     }
+   name ColorMatrix10
+   label "XYZ D65 to P3D65"
+   xpos 510
+   ypos -465
+  }
+push $N55fb4c00
+  ColorMatrix {
+   matrix {
+       {1.716650844 -0.3556707203 -0.2533662021}
+       {-0.6666842103 1.616480947 0.01576854289}
+       {0.01763985492 -0.04277061298 0.9421030283}
+     }
+   name ColorMatrix5
+   label "XYZ D65 to Rec2020"
+   xpos 400
+   ypos -465
+  }
+  Switch {
+   inputs 6
+   which {{gamut}}
+   name SwitchGamut
+   xpos 400
+   ypos -399
+  }
+ end_group
+ Dot {
+  name Dot6
+  xpos 34
+  ypos -294
+ }
+set N7f1cdc00 [stack 0]
+ Group {
+  name Rec709SphericalMoment
+  xpos 362
+  ypos -297
   addUserKnob {20 User}
   addUserKnob {4 direction M {forward inverse}}
  }
@@ -25,7 +341,7 @@ Group {
    name Input
    xpos 0
   }
-set N37152000 [stack 0]
+set N7f1cd800 [stack 0]
   Expression {
    expr0 sin(r*2*pi)*g*b*2
    expr1 b
@@ -45,7 +361,7 @@ set N37152000 [stack 0]
    xpos 133
    ypos 155
   }
-push $N37152000
+push $N7f1cd800
   ColorMatrix {
    matrix {
        {0.26021 -0.02946 -0.23075}
@@ -64,9 +380,10 @@ push $N37152000
    temp_name2 art
    temp_expr2 atan2(r,b)
    expr0 (art<0?art+2*pi:art)/(2*pi)
-   expr1 sqrt(r*r+b*b)/(2*g)
+   expr1 g==0?0:sqrt(r*r+b*b)/(2*g)
    expr2 g
    name xyz_moment2
+   selected true
    xpos -177
    ypos 176
   }
@@ -84,86 +401,33 @@ push $N37152000
   }
  end_group
  Expression {
-  expr2 b/(1+0.5*g*g)
+  expr0 1/(1+0.5*g*g)**p
+  expr1 1/(1+0.5*g*g)**p
+  expr2 1/(1+0.5*g*g)**p
   name density
-  xpos 0
-  ypos -173
- }
- Group {
-  name Rec709SphericalMoment1
-  xpos 0
-  ypos -123
+  xpos 362
+  ypos -273
   addUserKnob {20 User}
-  addUserKnob {4 direction M {forward inverse}}
-  direction inverse
+  addUserKnob {7 p l density R 0 2}
+  p 1
  }
-  Input {
-   inputs 0
-   name Input
-   xpos 0
-  }
-set N37150400 [stack 0]
-  Expression {
-   expr0 sin(r*2*pi)*g*b*2
-   expr1 b
-   expr2 cos(r*2*pi)*g*b*2
-   name moment_uv1
-   xpos 133
-   ypos 115
-  }
-  ColorMatrix {
-   matrix {
-       {0.26021 -0.02946 -0.23075}
-       {0.22143 0.40028 0.3783}
-       {0.13781 0.42831 -0.56612}
-     }
-   invert true
-   name uvtorec2
-   xpos 133
-   ypos 155
-  }
-push $N37150400
-  ColorMatrix {
-   matrix {
-       {0.26021 -0.02946 -0.23075}
-       {0.22143 0.40028 0.3783}
-       {0.13781 0.42831 -0.56612}
-     }
-   name uvtorec1
-   xpos -177
-   ypos 128
-  }
-  Expression {
-   temp_name0 l
-   temp_expr0 (r+g+b)/3
-   temp_name1 m
-   temp_expr1 sqrt((r-l)**2+(g-l)**2+(b-l)**2)
-   temp_name2 art
-   temp_expr2 atan2(r,b)
-   expr0 (art<0?art+2*pi:art)/(2*pi)
-   expr1 sqrt(r*r+b*b)/(2*g)
-   expr2 g
-   name xyz_moment2
-   xpos -177
-   ypos 176
-  }
-  Switch {
-   inputs 2
-   which {{parent.direction}}
-   name Inverse
-   xpos 0
-   ypos 300
-  }
-  Output {
-   name Output1
-   xpos 0
-   ypos 350
-  }
- end_group
+ Dot {
+  name Dot4
+  xpos 396
+  ypos -231
+ }
+push $N7f1cdc00
+ Merge2 {
+  inputs 2
+  operation multiply
+  name Merge1
+  xpos 0
+  ypos -234
+ }
  Group {
   name Gamut_Map
   xpos 0
-  ypos -60
+  ypos -176
  }
   Input {
    inputs 0
@@ -175,13 +439,13 @@ push $N37150400
    xpos 34
    ypos 24
   }
-set N5631d800 [stack 0]
+set N7f0be800 [stack 0]
   Dot {
    name Dot5
    xpos -236
    ypos 24
   }
-push $N5631d800
+push $N7f0be800
   Expression {
    temp_name0 mx
    temp_expr0 max(r,g,b)
@@ -224,7 +488,7 @@ push $N5631d800
    xpos 34
    ypos 247
   }
-set N5631c400 [stack 0]
+set N7f0bd400 [stack 0]
   MergeExpression {
    inputs 2
    temp_name0 l1
@@ -274,7 +538,7 @@ set N5631c400 [stack 0]
    xpos -270
    ypos 350
   }
-push $N5631c400
+push $N7f0bd400
   MergeExpression {
    inputs 2
    expr0 r*Ar
@@ -295,9 +559,9 @@ push $N5631c400
  Dot {
   name Dot3
   xpos 34
-  ypos -36
+  ypos -152
  }
-set N56216400 [stack 0]
+set N553a3400 [stack 0]
  Expression {
   temp_name0 l1
   temp_expr0 0.221425465*r+0.400280101*g+0.378294434*b
@@ -305,7 +569,7 @@ set N56216400 [stack 0]
   expr0 l1
   name WeightedSum1
   xpos -173
-  ypos -39
+  ypos -155
   addUserKnob {20 Params}
   addUserKnob {7 rw R 0.05 0.6}
   rw 0.25
@@ -314,11 +578,11 @@ set N56216400 [stack 0]
   addUserKnob {7 bw R 0.05 0.6}
   bw 0.3
  }
-set N56216000 [stack 0]
+set N553a3000 [stack 0]
  Dot {
   name Dot7
   xpos -249
-  ypos -36
+  ypos -152
  }
  Expression {
   channel0 rgb
@@ -326,7 +590,7 @@ set N56216000 [stack 0]
   expr3 L0*exp(-b2*r)+L1*(1-exp(-b2*r))
   name desat1
   xpos -283
-  ypos 259
+  ypos 143
   addUserKnob {20 User}
   addUserKnob {7 L1}
   L1 0.7
@@ -339,25 +603,25 @@ set N56216000 [stack 0]
   addUserKnob {7 b2}
   b2 {{-log((a2-L1)/(L0-L1))/a1}}
  }
-push $N56216400
+push $N553a3400
  Dot {
   name Dot1
   xpos 144
-  ypos -36
+  ypos -152
  }
  Dot {
   name Dot2
   xpos 144
-  ypos 155
+  ypos 39
  }
-set N56215000 [stack 0]
+set N553a2000 [stack 0]
  Dot {
   name Dot8
   xpos 144
-  ypos 230
+  ypos 114
  }
-push $N56215000
-push $N56216000
+push $N553a2000
+push $N553a3000
  Expression {
   temp_name0 ts0
   temp_expr0 invert?(r+sqrt(r*(4*fl+r)))/2:(m*r/(r+s))**c
@@ -368,7 +632,7 @@ push $N56216000
   name ConstrainedTonescale1
   label https://www.desmos.com/calculator/hglnae2ame
   xpos -173
-  ypos 4
+  ypos -112
   addUserKnob {20 Params}
   addUserKnob {7 Lp R 100 1000}
   Lp 100
@@ -404,7 +668,7 @@ push $N56216000
   expr0 r**(1/dch)*(1-r)+r*r
   name Power1
   xpos -173
-  ypos 56
+  ypos -60
   addUserKnob {20 Params}
   addUserKnob {7 dch R 0.25 1.25}
   dch 0.4
@@ -414,9 +678,9 @@ push $N56216000
   expr3 r
   name complement1
   xpos -173
-  ypos 102
+  ypos -14
  }
-push $N56216400
+push $N553a3400
  ColorMatrix {
   inputs 1+1
   matrix {
@@ -426,7 +690,7 @@ push $N56216400
     }
   name simpleHuematrix2
   xpos 0
-  ypos 102
+  ypos -14
   addUserKnob {20 User}
   addUserKnob {18 shift}
   shift {0.2 0.3 0}
@@ -460,7 +724,7 @@ push $N56216400
   expr2 b*m
   name Lum_Correct
   xpos 0
-  ypos 152
+  ypos 36
  }
  ColorMatrix {
   matrix {
@@ -470,7 +734,7 @@ push $N56216400
     }
   name simpleHuematrix5
   xpos 0
-  ypos 191
+  ypos 75
   addUserKnob {20 User}
   addUserKnob {18 shift}
   shift {0.05 0.05 0.23}
@@ -504,7 +768,7 @@ push $N56216400
   expr2 b*m
   name Lum_Correct2
   xpos 0
-  ypos 227
+  ypos 111
  }
  MergeExpression {
   inputs 2
@@ -520,11 +784,33 @@ push $N56216400
   expr3 1
   name avgdesat2
   xpos 0
-  ypos 259
+  ypos 143
   addUserKnob {20 User}
   addUserKnob {7 p R 10 20}
   p 10
  }
+set N55333800 [stack 0]
+ Expression {
+  temp_name0 rl
+  temp_expr0 (r*20/9+0.0103651025286)**1.12852042979
+  temp_name1 gl
+  temp_expr1 (g*20/9+0.0103651025286)**1.12852042979
+  temp_name2 bl
+  temp_expr2 (b*20/9+0.0103651025286)**1.12852042979
+  expr0 0.96*(rl/(0.729882132439+rl))**0.798259690532
+  expr1 0.96*(gl/(0.729882132439+gl))**0.798259690532
+  expr2 0.96*(bl/(0.729882132439+bl))**0.798259690532
+  name DarktableSigmoid
+  xpos -121
+  ypos 261
+ }
+ Gamma {
+  value 0.4166666667
+  name Gamma1
+  xpos -121
+  ypos 285
+ }
+push $N55333800
  Expression {
   temp_name0 rl
   temp_expr0 1.0471037624*(r/(r+0.9198582542))**1.15
@@ -536,8 +822,15 @@ push $N56216400
   expr1 gl*gl/(gl+0.04)
   expr2 bl*bl/(bl+0.04)
   name DanieleCurve
+  xpos 98
+  ypos 270
+ }
+ Switch {
+  inputs 2
+  which {{Curve}}
+  name Switch1
   xpos 0
-  ypos 300
+  ypos 375
  }
  ColorMatrix {
   matrix {
@@ -548,19 +841,19 @@ push $N56216400
   invert true
   name SimpleInset
   xpos 0
-  ypos 361
+  ypos 414
   addUserKnob {20 User}
   addUserKnob {18 inset}
-  inset {0.0458 0.0752 0.0285}
+  inset {0.458 0.752 0.285}
   addUserKnob {6 inset_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
   addUserKnob {18 red}
-  red {{1+inset.r} {inset.g} {inset.b}}
+  red {{1+inset.r/10} {inset.g/10} {inset.b/10}}
   addUserKnob {6 red_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
   addUserKnob {18 green}
-  green {{inset.r} {1+inset.g} {inset.b}}
+  green {{inset.r/10} {1+inset.g/10} {inset.b/10}}
   addUserKnob {6 green_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
   addUserKnob {18 blue}
-  blue {{inset.r} {inset.g} {1+inset.b}}
+  blue {{inset.r/10} {inset.g/10} {1+inset.b/10}}
   addUserKnob {6 blue_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
   addUserKnob {18 gain}
   gain {{red.r+red.g+red.b} {green.r+green.g+green.b} {blue.r+blue.g+blue.b}}
@@ -569,7 +862,7 @@ push $N56216400
  Group {
   name Gamut_Map1
   xpos 0
-  ypos 385
+  ypos 503
  }
   Input {
    inputs 0
@@ -581,13 +874,13 @@ push $N56216400
    xpos 34
    ypos 24
   }
-set N40722800 [stack 0]
+set N55331c00 [stack 0]
   Dot {
    name Dot5
    xpos -236
    ypos 24
   }
-push $N40722800
+push $N55331c00
   Expression {
    temp_name0 mx
    temp_expr0 max(r,g,b)
@@ -631,7 +924,7 @@ push $N40722800
    xpos 34
    ypos 247
   }
-set N40721400 [stack 0]
+set N55330800 [stack 0]
   MergeExpression {
    inputs 2
    temp_name0 l1
@@ -681,7 +974,7 @@ set N40721400 [stack 0]
    xpos -270
    ypos 350
   }
-push $N40721400
+push $N55330800
   MergeExpression {
    inputs 2
    expr0 r*Ar
@@ -701,12 +994,13 @@ push $N40721400
  Colorspace {
   colorspace_out 2.40
   name Colorspace1
+  selected true
   xpos 0
-  ypos 409
+  ypos 571
  }
  Output {
   name Output1
   xpos 0
-  ypos 489
+  ypos 664
  }
 end_group
