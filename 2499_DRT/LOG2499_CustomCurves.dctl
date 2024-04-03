@@ -1,0 +1,191 @@
+#line 2
+
+/*------------------------------------------------
+    Custom Curves for 2499LOG
+    v0.0.1
+    
+    Written by Juan Pablo Zambrano
+    https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
+
+-------------------------------------------------*/
+
+__DEVICE__ float oetf_davinci_intermediate(float x, int inv) {
+    /* DaVinci Intermediate Log
+        https://documents.blackmagicdesign.com/InformationNotes/DaVinci_Resolve_17_Wide_Gamut_Intermediate.pdf
+    */
+
+    const float A = 0.0075f;
+    const float B = 7.0f;
+    const float C = 0.07329248f;
+    const float M = 10.44426855f;
+    const float LIN_CUT = 0.00262409f;
+    const float LOG_CUT = 0.02740668f;
+
+    if (inv == 1) {
+        return x <= LOG_CUT ? x / M : _exp2f(x / C - B) - A;
+    } else {
+        return x <= LIN_CUT ? x * M : (_log2f(x + A) + B) * C;
+    }
+}
+
+__DEVICE__ float3 maxf3(float b, float3 a) {
+    // For each component of float3 a, return max of component and float b
+    return make_float3(_fmaxf(a.x, b), _fmaxf(a.y, b), _fmaxf(a.z, b));
+}
+
+__DEVICE__ float3 minf3(float b, float3 a) {
+    // For each component of float3 a, return max of component and float b
+    return make_float3(_fminf(a.x, b), _fminf(a.y, b), _fminf(a.z, b));
+}
+
+__DEVICE__ float3 pow3(float b, float3 a, int inv) {
+
+    b = inv ? b : 1 / b;
+
+    return make_float3(_powf(a.x, b), _powf(a.y, b), _powf(a.z, b));
+}
+
+__DEVICE__ float3 DanieleCurve(float3 rgb, float m, float s, float g, float o, int inv) {
+
+    if (inv == 1) {
+        rgb.x = 0.5 * (rgb.x + _sqrtf(rgb.x * rgb.x + rgb.x * 4 * o));
+        rgb.y = 0.5 * (rgb.y + _sqrtf(rgb.y * rgb.y + rgb.y * 4 * o));
+        rgb.z = 0.5 * (rgb.z + _sqrtf(rgb.z * rgb.z + rgb.z * 4 * o));
+
+        g = 1 / g;
+
+        rgb.x = s * _powf(rgb.x / m, g) / (1 - _powf(rgb.x / m, g));
+        rgb.y = s * _powf(rgb.y / m, g) / (1 - _powf(rgb.y / m, g));
+        rgb.z = s * _powf(rgb.z / m, g) / (1 - _powf(rgb.z / m, g));
+
+        return rgb;
+
+    } else {
+        rgb.x = m * _powf(rgb.x / (rgb.x + s), g);
+        rgb.y = m *_powf(rgb.y / (rgb.y + s), g);
+        rgb.z = m *_powf(rgb.z / (rgb.z + s), g);
+
+        rgb.x = rgb.x*rgb.x/(rgb.x + o);
+        rgb.y = rgb.y*rgb.y/(rgb.y + o);
+        rgb.z = rgb.z*rgb.z/(rgb.z + o);
+        return rgb;
+    }
+
+    return rgb;
+}
+
+
+__DEVICE__ float general_sigmoid(float x,float m,float a1,float b1,float c1,float d1) {
+
+    float film_response = _powf(x+a1,b1);
+    float paper_response = m*_powf(film_response/(c1+film_response),d1);
+    return isnan(paper_response)?m:paper_response;
+}
+
+__DEVICE__ float inv_general_sigmoid(float x,float m,float a1,float b1,float c1,float d1) {
+
+    x = _powf(x/m,1/d1);
+    return (_powf(c1*x/(1-x),1/b1)-a1);
+   
+}
+__DEVICE__ float full_sigmoid(float in,float middle_grey_in,float middle_grey,float middle_grey_contrast,float contrast_skewness,float display_white_target,float display_black_target,int inv) {
+
+    display_black_target = _fminf(display_black_target,middle_grey-0.01);
+
+    const float pp = _powf(5,contrast_skewness);
+
+    const float white_grey_relation
+                = _powf(display_white_target / middle_grey, 1.0f / pp) - 1.0f;
+    const float white_black_relation
+                = _powf(display_black_target / display_white_target, -1.0f / pp) - 1.0f;
+
+    float film_fog = middle_grey * _powf(white_grey_relation, 1.0f / middle_grey_contrast)
+                          / (_powf(white_black_relation, 1.0f / middle_grey_contrast)
+                            - _powf(white_grey_relation, 1.0f / middle_grey_contrast));
+
+    float paper_exposure = 
+               _powf(film_fog + middle_grey, middle_grey_contrast) * white_grey_relation;
+
+    in = inv?in:fmaxf(-film_fog*middle_grey/middle_grey_in,in);
+
+    in = inv?inv_general_sigmoid(in, display_white_target,film_fog,middle_grey_contrast,paper_exposure,pp)*middle_grey_in/middle_grey:general_sigmoid(in*middle_grey/middle_grey_in, display_white_target,film_fog,middle_grey_contrast,paper_exposure,pp);
+
+    return in;
+}
+
+
+__DEVICE__ float3 _f3full_sigmoid(float3 rgb,float middle_grey_in,float middle_grey,float middle_grey_contrast,float contrast_skewness,float display_white_target,float display_black_target,int inv) {
+
+  return make_float3(full_sigmoid(rgb.x,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness,display_white_target,display_black_target,inv)
+                    ,full_sigmoid(rgb.y,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness,display_white_target,display_black_target,inv)
+                    ,full_sigmoid(rgb.z,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness,display_white_target,display_black_target,inv));
+}
+
+
+
+
+__DEVICE__ float3 filmdesat(float3 rgb, float sat) {
+
+    rgb.x = _powf(0.1, rgb.x);
+    rgb.y = _powf(0.1, rgb.y);
+    rgb.z = _powf(0.1, rgb.z);
+
+    float lum = (rgb.x + rgb.y + rgb.z) / 3;
+
+    rgb = _mix(make_float3(lum, lum, lum), rgb, sat);
+
+    rgb.x = _logf(1 / rgb.x) / _logf(10.0);
+    rgb.y = _logf(1 / rgb.y) / _logf(10.0);
+    rgb.z = _logf(1 / rgb.z) / _logf(10.0);
+
+    return rgb;
+}
+
+DEFINE_UI_PARAMS(sat, Film Desat, DCTLUI_SLIDER_FLOAT, 1, 0.0, 1, 0.01)
+DEFINE_UI_PARAMS(middle_grey_contrast, MidGrey Contrast, DCTLUI_SLIDER_FLOAT, 1, 0.1, 3.0, 0.001)
+DEFINE_UI_PARAMS(contrast_skewness, Skew, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(display_white_target, White Point, DCTLUI_SLIDER_FLOAT, 1, 0.90, 1, 1)
+DEFINE_UI_PARAMS(display_black_target, Black Point, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 0.08, 0.001)
+DEFINE_UI_PARAMS(wtm, white temp, DCTLUI_SLIDER_FLOAT, 0.0, -0.6, 0.6, 0.0)
+DEFINE_UI_PARAMS(wtn, white tint, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.0)
+DEFINE_UI_PARAMS(ltm, Skew temp, DCTLUI_SLIDER_FLOAT, 0.0, -0.6, 0.6, 0.0)
+DEFINE_UI_PARAMS(ltn, Skew tint, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.0)
+DEFINE_UI_PARAMS(bypass, bypass, DCTLUI_CHECK_BOX, 0);
+
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+    float3 rgb = make_float3(p_R, p_G, p_B);
+
+    float3 in = rgb;
+
+    const float wtm_abs = wtm > 0.0f ? wtm : -wtm;
+
+    float middle_grey_in = 0.18f;
+    float middle_grey = _powf(0.1,1/2.4);
+
+    rgb = filmdesat(rgb, sat);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 1);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 1);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 1);
+
+    rgb = maxf3(0, rgb);
+
+    rgb.x = full_sigmoid(rgb.x,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness - ltm      ,display_white_target*_powf(1.1f, wtm - wtm_abs),display_black_target,0);
+    rgb.y = full_sigmoid(rgb.y,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness - ltm * ltn,display_white_target*_powf(1.1f, wtm*wtn - wtm_abs),display_black_target,0);
+    rgb.z = full_sigmoid(rgb.z,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness + ltm      ,display_white_target*_powf(1.1f, -wtm - wtm_abs),display_black_target,0);
+
+    
+    rgb = _f3full_sigmoid(rgb,middle_grey_in,middle_grey,1,0,1,0,1);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 0);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 0);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 0);
+
+    rgb = bypass?in:rgb;
+
+
+    return rgb;
+}
+
