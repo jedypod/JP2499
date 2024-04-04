@@ -1,5 +1,12 @@
 #line 2
+/*------------------------------------------------
+    2499DRT
+    v1.0.0
+    
+    Written by Juan Pablo Zambrano
+    https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
 
+-------------------------------------------------*/
 
 typedef struct {
         float3 x, y, z;
