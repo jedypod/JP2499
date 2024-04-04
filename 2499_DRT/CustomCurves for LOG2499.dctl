@@ -2,7 +2,7 @@
 
 /*------------------------------------------------
     Custom Curves for 2499LOG
-    v0.0.1
+    v0.0.2
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -106,7 +106,7 @@ __DEVICE__ float full_sigmoid(float in,float middle_grey_in,float middle_grey,fl
     float paper_exposure = 
                _powf(film_fog + middle_grey, middle_grey_contrast) * white_grey_relation;
 
-    in = inv?in:fmaxf(-film_fog*middle_grey/middle_grey_in,in);
+    in = inv?in:_fmaxf(-film_fog*middle_grey/middle_grey_in,in);
 
     in = inv?inv_general_sigmoid(in, display_white_target,film_fog,middle_grey_contrast,paper_exposure,pp)*middle_grey_in/middle_grey:general_sigmoid(in*middle_grey/middle_grey_in, display_white_target,film_fog,middle_grey_contrast,paper_exposure,pp);
 
