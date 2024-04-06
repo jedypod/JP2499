@@ -2,7 +2,7 @@
 
 /*------------------------------------------------
     Split-tone Presets for 2499LOG
-    v0.0.1
+    v0.0.2
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -46,7 +46,12 @@ __DEVICE__ float3 pow3(float b, float3 a, int inv) {
     return make_float3(_powf(a.x, b), _powf(a.y, b), _powf(a.z, b));
 }
 
-__DEVICE__ float3 DanieleCurve(float3 rgb, float m, float s, float g, float o, int inv) {
+
+__DEVICE__ float3 DanieleCurve(float3 rgb, float mx,float my,float py,float g,float o, int inv) {
+
+    float mi = 0.5*(my + _sqrtf( my * my + 4 * my * o));
+    float pi = 0.5*(py + _sqrtf( py * py + 4 * py * o));
+    float s = ((1-_powf(mi/pi,1/g))/_powf(mi/pi,1/g))*mx;
 
     if (inv == 1) {
         rgb.x = 0.5 * (rgb.x + _sqrtf(rgb.x * rgb.x + rgb.x * 4 * o));
@@ -55,16 +60,16 @@ __DEVICE__ float3 DanieleCurve(float3 rgb, float m, float s, float g, float o, i
 
         g = 1 / g;
 
-        rgb.x = s * _powf(rgb.x / m, g) / (1 - _powf(rgb.x / m, g));
-        rgb.y = s * _powf(rgb.y / m, g) / (1 - _powf(rgb.y / m, g));
-        rgb.z = s * _powf(rgb.z / m, g) / (1 - _powf(rgb.z / m, g));
+        rgb.x = s * _powf(rgb.x / pi, g) / (1 - _powf(rgb.x / pi, g));
+        rgb.y = s * _powf(rgb.y / pi, g) / (1 - _powf(rgb.y / pi, g));
+        rgb.z = s * _powf(rgb.z / pi, g) / (1 - _powf(rgb.z / pi, g));
 
         return rgb;
 
     } else {
-        rgb.x = m * _powf(rgb.x / (rgb.x + s), g);
-        rgb.y = m *_powf(rgb.y / (rgb.y + s), g);
-        rgb.z = m *_powf(rgb.z / (rgb.z + s), g);
+        rgb.x = pi * _powf(rgb.x / (rgb.x + s), g);
+        rgb.y = pi *_powf(rgb.y / (rgb.y + s), g);
+        rgb.z = pi *_powf(rgb.z / (rgb.z + s), g);
 
         rgb.x = rgb.x*rgb.x/(rgb.x + o);
         rgb.y = rgb.y*rgb.y/(rgb.y + o);
@@ -74,6 +79,7 @@ __DEVICE__ float3 DanieleCurve(float3 rgb, float m, float s, float g, float o, i
 
     return rgb;
 }
+
 __DEVICE__ float3 BarselinoClassicPrint(float3 rgb) {
 
     rgb.x = oetf_davinci_intermediate(rgb.x, 1);
@@ -92,7 +98,7 @@ __DEVICE__ float3 BarselinoClassicPrint(float3 rgb) {
 
     rgb = pow3(2.4, rgb, 1);
 
-    rgb = DanieleCurve(rgb,1.03851648071345,0.91200544551371,1.15,0.04,1);
+    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,1);
 
     rgb.x = oetf_davinci_intermediate(rgb.x, 0);
     rgb.y = oetf_davinci_intermediate(rgb.y, 0);
@@ -214,7 +220,7 @@ __DEVICE__ float3 ClassicPrintv2(float3 rgb) {
 
     rgb = pow3(2.4, rgb, 1);
 
-    rgb = DanieleCurve(rgb,1.03851648071345,0.91200544551371,1.15,0.04,1);
+    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,1);
 
     rgb.x = oetf_davinci_intermediate(rgb.x, 0);
     rgb.y = oetf_davinci_intermediate(rgb.y, 0);
@@ -244,8 +250,7 @@ __DEVICE__ float3 instantfilm(float3 rgb) {
 
     rgb = pow3(2.4, rgb, 1);
 
-    rgb = DanieleCurve(rgb,1.03851648071345,0.91200544551371,1.15,0.04,1);
-
+    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,1);
 
     rgb.x = oetf_davinci_intermediate(rgb.x*1.251864, 0);
     rgb.y = oetf_davinci_intermediate(rgb.y*0.963538, 0);
@@ -292,7 +297,7 @@ __DEVICE__ float3 strongBandW(float3 rgb) {
 
     rgb = pow3(2.4, rgb, 1);
 
-    rgb = DanieleCurve(rgb,1.03851648071345,0.91200544551371,1.15,0.04,1);
+    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,1);
 
     rgb.x = oetf_davinci_intermediate(rgb.x, 0);
     rgb.y = oetf_davinci_intermediate(rgb.y, 0);
@@ -321,7 +326,7 @@ __DEVICE__ float3 classicreversal(float3 rgb) {
 
     rgb = minf3(1.0, rgb);
 
-    rgb = DanieleCurve(rgb,1.03851648071345,0.91200544551371,1.15,0.04,1);
+    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,1);
 
     rgb.x = oetf_davinci_intermediate(rgb.x, 0);
     rgb.y = oetf_davinci_intermediate(rgb.y, 0);
@@ -348,7 +353,7 @@ __DEVICE__ float3 classicprintv3(float3 rgb) {
 
     rgb = pow3(2.4, rgb, 1);
 
-    rgb = DanieleCurve(rgb,1.03851648071345,0.91200544551371,1.15,0.04,1);
+    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,1);
 
     rgb.x = oetf_davinci_intermediate(rgb.x, 0);
     rgb.y = oetf_davinci_intermediate(rgb.y, 0);
