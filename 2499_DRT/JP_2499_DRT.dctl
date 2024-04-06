@@ -1,7 +1,7 @@
 #line 2
 /*------------------------------------------------
     2499DRT
-    v1.0.0
+    v1.0.1
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -19,7 +19,7 @@ __DEVICE__ float3x3 make_float3x3(float3 a, float3 b, float3 c) {
     return d;
 }
 
-#define identity_mtx make_float3x3(make_float3(1.0f, 0.0f, 0.0f), make_float3(0.0f, 1.0f, 0.0f), make_float3(0.0f, 0.0f, 1.0f))
+
 #define matrix_davinciwg_to_xyz                                                                                                            \
     make_float3x3(make_float3(0.700622320175f, 0.148774802685f, 0.101058728993f),                                                          \
                   make_float3(0.274118483067f, 0.873631775379f, -0.147750422359f),                                                         \
@@ -37,13 +37,14 @@ __DEVICE__ float3x3 make_float3x3(float3 a, float3 b, float3 c) {
                   make_float3(0.228974640369f, 0.691738605499f, 0.079286918044f),                                                          \
                   make_float3(-0.000000000000f, 0.045113388449, 1.043944478035f))
 #define matrix_xyz_to_rec2020                                                                                                              \
-    make_float3x3(make_float3(1.716651, -0.355671, -0.253366),                                                                             \
-                  make_float3(-0.666684, 1.616481, 0.015769),                                                                              \
-                  make_float3(0.017640, -0.042771, 0.942103))
-#define matrix_AP0_to_DWG                                                                                                              \
-    make_float3x3(make_float3( 1.328323f,-0.213524f,-0.114799f),                                                                             \
-                  make_float3(-0.013161f, 0.912865f, 0.100295f),                                                                              \
-                  make_float3( 0.098319f, 0.079618f, 0.822062f))
+    make_float3x3(make_float3( 1.71665119f, -0.35567078f, -0.25336628f),                                                                   \
+                  make_float3(-0.66668435f,  1.61648124f,  0.01576855f),                                                                   \
+                  make_float3( 0.01763986f, -0.04277061f,  0.94210312))
+//APO/ACES 2065-1 to DWG using cat02 for chroamtic adaptation
+#define matrix_AP0_to_DWG                                                                                                                  \
+    make_float3x3(make_float3( 1.32832312f,-0.21352364f,-0.11479948f),                                                                     \
+                  make_float3(-0.01316075f, 0.91286542f, 0.10029534f),                                                                     \
+                  make_float3( 0.09831923f, 0.07961846f, 0.82206231f))
 
 // Multiply float3 vector a and 3x3 matrix m
 __DEVICE__ inline float3 mult_f3_f33(float3 a, float3x3 m) {
@@ -54,7 +55,7 @@ __DEVICE__ inline float3 mult_f3_f33(float3 a, float3x3 m) {
 __DEVICE__ inline float3x3 inv_f33(float3x3 m) {
     float d = m.x.x * (m.y.y * m.z.z - m.z.y * m.y.z) - m.x.y * (m.y.x * m.z.z - m.y.z * m.z.x) + m.x.z * (m.y.x * m.z.y - m.y.y * m.z.x);
     float id = 1.0f / d;
-    float3x3 c = identity_mtx;
+    float3x3 c = make_float3x3(make_float3(1.0f, 0.0f, 0.0f), make_float3(0.0f, 1.0f, 0.0f), make_float3(0.0f, 0.0f, 1.0f));
     c.x.x = id * (m.y.y * m.z.z - m.z.y * m.y.z);
     c.x.y = id * (m.x.z * m.z.y - m.x.y * m.z.z);
     c.x.z = id * (m.x.y * m.y.z - m.x.z * m.y.y);
@@ -88,19 +89,11 @@ __DEVICE__ inline float oetf_davinci_intermediate(float x, int inv) {
 
 __DEVICE__ inline float3 vdot(float3x3 m, float3 v) {
     return make_float3(
-        m.x.x * v.x + m.x.y * v.y + m.x.z * v.z, m.y.x * v.x + m.y.y * v.y + m.y.z * v.z, m.z.x * v.x + m.z.y * v.y + m.z.z * v.z);
+        m.x.x * v.x + m.x.y * v.y + m.x.z * v.z,
+        m.y.x * v.x + m.y.y * v.y + m.y.z * v.z, 
+        m.z.x * v.x + m.z.y * v.y + m.z.z * v.z);
 }
 
-__DEVICE__ float safedivf(float a, float b) {
-    if (b == 0.0f)
-        return 0.0f;
-    else
-        return a / b;
-}
-
-__DEVICE__ inline float3 safedivf3f(float3 a, float b) {
-    return make_float3(safedivf(a.x, b), safedivf(a.y, b), safedivf(a.z, b));
-}
 
 __DEVICE__ inline float max3(float x, float y, float z) {
     return _fmaxf(x, _fmaxf(y, z));
@@ -185,10 +178,30 @@ __DEVICE__ inline float lumMask(float3 rgb, float redw, float greenw, float blue
     return lum;
 }
 
-__DEVICE__ inline float3 Energy709Correction(float3 pre, float3 post) {
+__DEVICE__ inline float3 avgweights(float3x3 mt) {
+
+    float3 weights = vdot(mt,make_float3(1.0f,1.0f,1.0f));
+
+    mt.x /= weights.x;
+    mt.y /= weights.y;
+    mt.z /= weights.z;
+
+    mt = transpose_f33(mt);
+
+    weights = make_float3(mt.x.x + mt.x.y + mt.x.z, mt.y.x + mt.y.y + mt.y.z, mt.z.x + mt.z.y + mt.z.z);
+    weights /= 3.0f;
+
+    return weights;
+}
+
+
+
+__DEVICE__ inline float3 EnergyCorrection(float3 pre, float3 post,float3x3 mt) {
 
     float PI_LOCAL = _atan2f(1, 1) * 4;
-    float3 weights = make_float3(0.221425465f, 0.400280101f, 0.378294434f);
+
+    float3 weights = avgweights(mt);
+
 
     float preavg = weights.x * pre.x + weights.y * pre.y + weights.z * pre.z;
     float postavg = weights.x * post.x + weights.y * post.y + weights.z * post.z;
@@ -202,37 +215,19 @@ __DEVICE__ inline float3 Energy709Correction(float3 pre, float3 post) {
     return out;
 }
 
-__DEVICE__ inline float3 EnergyP3Correction(float3 pre, float3 post) {
 
-    float PI_LOCAL = _atan2f(1, 1) * 4;
-    float3 weights = make_float3(0.246969643241508f, 0.338602410979748f, 0.414427945778744f);
 
-    float preavg = weights.x * pre.x + weights.y * pre.y + weights.z * pre.z;
-    float postavg = weights.x * post.x + weights.y * post.y + weights.z * post.z;
-
-    float gain = 4 * _atan2f(preavg, postavg) / PI_LOCAL;
-    gain = powerptoe(gain, 0.16f, 0.0f, 1.0f);
-    gain = _tanf(gain * PI_LOCAL / 4);
-
-    float3 out = post * gain;
-
-    return out;
-}
-
-__DEVICE__ inline float3 NonLinearGamutMapping(float3 in, float p, float m, float t0, int corr, int clip) {
+__DEVICE__ inline float3 NonLinearGamutMapping(float3 in, float p, float m, float t0) {
 
     float mx = max3(in.x, in.y, in.z);
 
-    float3 rgb = in;
-    rgb.x = _fmaxf(in.x, 0);
-    rgb.y = _fmaxf(in.y, 0);
-    rgb.z = _fmaxf(in.z, 0);
-    float3 rats = safedivf3f(in, mx);
+    float3 rats;
+    rats.x = mx == 0.0f ? 0.0f: in.x/mx;
+    rats.y = mx == 0.0f ? 0.0f: in.y/mx;
+    rats.z = mx == 0.0f ? 0.0f: in.z/mx;
     rats = powerptoef3f(rats, p, m, t0);
 
-    float3 out = clip == 1 ? rgb : rats * mx;
-
-    out = corr == 1 ? Energy709Correction(in, out) : out;
+    float3 out = rats * mx;
 
     return out;
 }
@@ -301,7 +296,11 @@ __DEVICE__ inline float3x3 simpleInsetMatrix(float red, float green, float blue,
 }
 
 
-__DEVICE__ inline float3 DanieleCurve(float3 rgb, float m, float s, float g, float o, int inv) {
+__DEVICE__ float3 inline DanieleCurve(float3 rgb, float mx,float my,float py,float g,float o, int inv) {
+
+    float mi = 0.5*(my + _sqrtf( my * my + 4 * my * o));
+    float pi = 0.5*(py + _sqrtf( py * py + 4 * py * o));
+    float s = ((1-_powf(mi/pi,1/g))/_powf(mi/pi,1/g))*mx;
 
     if (inv == 1) {
         rgb.x = 0.5 * (rgb.x + _sqrtf(rgb.x * rgb.x + rgb.x * 4 * o));
@@ -310,16 +309,16 @@ __DEVICE__ inline float3 DanieleCurve(float3 rgb, float m, float s, float g, flo
 
         g = 1 / g;
 
-        rgb.x = s * _powf(rgb.x / m, g) / (1 - _powf(rgb.x / m, g));
-        rgb.y = s * _powf(rgb.y / m, g) / (1 - _powf(rgb.y / m, g));
-        rgb.z = s * _powf(rgb.z / m, g) / (1 - _powf(rgb.z / m, g));
+        rgb.x = s * _powf(rgb.x / pi, g) / (1 - _powf(rgb.x / pi, g));
+        rgb.y = s * _powf(rgb.y / pi, g) / (1 - _powf(rgb.y / pi, g));
+        rgb.z = s * _powf(rgb.z / pi, g) / (1 - _powf(rgb.z / pi, g));
 
         return rgb;
 
     } else {
-        rgb.x = m * _powf(rgb.x / (rgb.x + s), g);
-        rgb.y = m * _powf(rgb.y / (rgb.y + s), g);
-        rgb.z = m * _powf(rgb.z / (rgb.z + s), g);
+        rgb.x = pi * _powf(rgb.x / (rgb.x + s), g);
+        rgb.y = pi *_powf(rgb.y / (rgb.y + s), g);
+        rgb.z = pi *_powf(rgb.z / (rgb.z + s), g);
 
         rgb.x = rgb.x*rgb.x/(rgb.x + o);
         rgb.y = rgb.y*rgb.y/(rgb.y + o);
@@ -448,7 +447,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     // These weights are found by the average of white balanced XYZ values for rec709, they can be calculated from the rec709 to XYZ
     // matrix,I see them as energy weights
-    float3 weights = make_float3(0.221425465f, 0.400280101f, 0.378294434f);
+    float3 weights = avgweights(matrix_rec709_to_xyz);
 
     float3 rgb = make_float3(p_R, p_G, p_B);
 
@@ -484,6 +483,8 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         // add density by multiply by rgb
         rgb *= satm;
 
+        float3 rgb_copy = rgb;
+
         /*
         inspired by Jeds Smith OpenDRT gamut mapping, using a norm to divide rgb , those ration are then smoothly compressed to remove
         zeros, this is not chromaticity linear, for me it seems to be a better option than to keep it chr linear, using weights to find the
@@ -491,7 +492,8 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         operation to bring those values to positve multiply the final energy ratio by the gamut mapped rgb
         */
 
-        rgb = NonLinearGamutMapping(rgb, 0.08f, 0.0f, 1.0f, 1, 0);
+        rgb = NonLinearGamutMapping(rgb, 0.08f, 0.0f, 1.0f);
+        rgb = EnergyCorrection(rgb_copy,rgb,matrix_rec709_to_xyz);
 
         // make a copy of rgb that will be needed to restore the energy after the following operations
         float3 in = rgb;
@@ -522,7 +524,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         rgb = _mix(make_float3(norm, norm, norm), rgb, desatlum);
 
         // re-store the energy pre hue and desat operations
-        rgb = Energy709Correction(in, rgb);
+        rgb = EnergyCorrection(in, rgb,matrix_rec709_to_xyz);
 
         rgb = maxf3(0, rgb);
 
@@ -530,8 +532,6 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         log2499.x = oetf_davinci_intermediate(rgb.x, 0);
         log2499.y = oetf_davinci_intermediate(rgb.y, 0);
         log2499.z = oetf_davinci_intermediate(rgb.z, 0);
-
-
 
     } else if (input == film2499) {
         // this is for the case where the DCTl input is Davinci Intermediate 2499 encoding
@@ -548,7 +548,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     // I can know map to display using per-chanell sigmoid, I have 2 options , basecon is exactly like the current one used in ACES2
 
-    rgb = DanieleCurve(rgb,1.03851648071345f,0.91200544551371f,1.15f,0.04f,0);
+    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,0);
 
     // Add some purity for preferential look
     rgb = mult_f3_f33(rgb, simpleInsetMatrix(rsat / 10, gsat / 10, bsat / 10, 1));
@@ -557,59 +557,40 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     // Encode for display
 
-    switch (output) {
+    if ( output == p3d65 || output == rec2020pq || output == rec2020hlg) {
+        
+        rgb = vdot(matrix_rec709_to_xyz, rgb);
+        rgb = vdot(inv_f33(matrix_p3d65_to_xyz), rgb);
+        out = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f);
+        out = EnergyCorrection(rgb,out,matrix_p3d65_to_xyz);
+        out = maxf3(0, out);
+        
+        if (output == p3d65) {
+        
+        out = pow3(power, out, 0);
 
-        case Bt1886:
-            rgb = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f, 0, 0);
+    } else if (output == rec2020pq || output == rec2020hlg){
+
+        out *= display_white_gain;
+
+        // Display encoding
+        out = vdot(matrix_p3d65_to_xyz, out);
+        out = vdot(matrix_xyz_to_rec2020, out);
+        out = maxf3(0, out);
+        out = output == rec2020pq ? eotf_pq(out, 1):output == rec2020hlg?eotf_hlg(out,1):out;
+
+        }
+
+    } else if (output == Bt1886) {
+            rgb = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f);
+            out = EnergyCorrection(rgb, out,matrix_rec709_to_xyz);
             out = maxf3(0, rgb);
             out = pow3(power, out, 0);
-            break;
 
-        case p3d65:
-            rgb = vdot(matrix_rec709_to_xyz, rgb);
-            rgb = vdot(inv_f33(matrix_p3d65_to_xyz), rgb);
-            out = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f, 0, 0);
-            out = EnergyP3Correction(rgb, out);
-            out = maxf3(0, out);
-            out = pow3(power, out, 0);
-            break;
-
-        case rec2020pq:
-            // Just p3d65 but transformed to rec2020/pq, limited to p3d65.
-            rgb = vdot(matrix_rec709_to_xyz, rgb);
-            rgb = vdot(inv_f33(matrix_p3d65_to_xyz), rgb);
-            out = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f, 0, 0);
-            out = EnergyP3Correction(rgb, out);
-            out = maxf3(0, out);
-            out *= display_white_gain;
-
-            // Display encoding
-            out = vdot(matrix_p3d65_to_xyz, out);
-            out = vdot(matrix_xyz_to_rec2020, out);
-            out = maxf3(0, out);
-            out = eotf_pq(out, 1);
-            break;
-
-            case rec2020hlg:
-            // Just p3d65 but transformed to rec2020/pq, limited to p3d65.
-            rgb = vdot(matrix_rec709_to_xyz, rgb);
-            rgb = vdot(inv_f33(matrix_p3d65_to_xyz), rgb);
-            out = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f, 0, 0);
-            out = EnergyP3Correction(rgb, out);
-            out = maxf3(0, out);
-            out *= display_white_gain;
-
-            // Display encoding
-            out = vdot(matrix_p3d65_to_xyz, out);
-            out = vdot(matrix_xyz_to_rec2020, out);
-            out = maxf3(0, out);
-            out = eotf_hlg(out,1);
-            break;
-
-        case Log2499:
+    } else if (output == Log2499){
+        
             out = log2499;
-            break;
-    }
+    }    
 
     return out;
 }
