@@ -1,7 +1,7 @@
 #line 2
 /*------------------------------------------------
     2499DRT
-    v1.0.1
+    v1.1.0
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -432,7 +432,8 @@ DEFINE_UI_PARAMS(output_diffuse_white, HDR Output Diffuse White, DCTLUI_SLIDER_F
 // or BT1886,some grading operations are better dont like negative values, 2499 LOG doesn't have any negative so its the great step for
 // those operations, for example blurring, sharpening, grain,halation ,split-toning, etc
 DEFINE_UI_PARAMS(input, Input, DCTLUI_COMBO_BOX, 0, {DWG_DI, DWG_LIN, film2499,ACES}, {DWG DI, DWG Lin, 2499 LOG,ACES 2065-1})
-DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 1, {Log2499,Bt1886, p3d65, rec2020pq,rec2020hlg}, {2499 LOG,BT .1886, P3D65 G2 .4, Rec2020 PQ,Rec2020 HLG})
+//DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 1, {Log2499,Bt1886, p3d65, rec2020pq,rec2020hlg}, {2499 LOG,BT .1886, P3D65 G2 .4, Rec2020 PQ/ST-2084,Rec2020 HLG})
+DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 1,{Log2499,Bt1886 ,srgb,p3theatrical,p3_24,applep3,p3dcitheatrical ,rec2020pq,rec2020hlg,xyzdci_26,xyzd65_26},{2499LOG - DRT intermediate space,Rec 709 Power 2.4 - BT.1886,Rec 709 Power 2.2 - sRGB,P3D65 Power 2.6 - Theatrical Projection,P3D65 Power 2.4 ,P3D65 Power 2.2 - Apple P3,P3DCI Power 2.6 - Theatrical Projection,Rec2020 ST2048 PQ  (P3 limited),Rec2020 HLG (P3 limited),XYZ DCI Power 2.6 - DCP (P3 limited),XYZ D65 Power 2.6 - DCP (P3 limited)})
 
 // clang-format on
 
@@ -443,7 +444,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     float power = 2.4;
 
     // Display White point scaling
-    float display_white_gain = output == 3 ? (output_diffuse_white / 10000.0):output == 4?(output_diffuse_white / 1000.0) : 1.0f;
+    float display_white_gain = output == rec2020pq ? (output_diffuse_white / 10000.0):output == rec2020hlg?(output_diffuse_white / 1000.0) : 1.0f;
 
     // These weights are found by the average of white balanced XYZ values for rec709, they can be calculated from the rec709 to XYZ
     // matrix,I see them as energy weights
@@ -557,19 +558,34 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     // Encode for display
 
-    if ( output == p3d65 || output == rec2020pq || output == rec2020hlg) {
-        
-        rgb = vdot(matrix_rec709_to_xyz, rgb);
-        rgb = vdot(inv_f33(matrix_p3d65_to_xyz), rgb);
-        out = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f);
-        out = EnergyCorrection(rgb,out,matrix_p3d65_to_xyz);
-        out = maxf3(0, out);
-        
-        if (output == p3d65) {
-        
-        out = pow3(power, out, 0);
+float3 p3d65_to_dci = make_float3(0.950159810718f,0.8333128995f,1.0f);
 
-    } else if (output == rec2020pq || output == rec2020hlg){
+if (output == Bt1886 || output == srgb){
+
+    rgb = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f);
+    out = EnergyCorrection(rgb, out,matrix_rec709_to_xyz);
+    out = maxf3(0, rgb);
+    out = output==Bt1886?pow3(2.4, out, 0):pow3(2.2, out, 0);
+
+} else if (output == Log2499){
+
+    out = log2499;
+
+} 
+    else 
+{
+    rgb = vdot(matrix_rec709_to_xyz, rgb);
+    rgb = vdot(inv_f33(matrix_p3d65_to_xyz), rgb);
+    out = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f);
+    out = EnergyCorrection(rgb,out,matrix_p3d65_to_xyz);
+    out = maxf3(0, out);
+    out  = output == p3dcitheatrical || output == xyzdci_26 ? out*p3d65_to_dci : out;
+
+    if(output == p3theatrical || output == p3_24 || output == applep3 || output == p3dcitheatrical){
+
+        out  = output == p3dcitheatrical || output == p3dcitheatrical ? pow3(2.6, out, 0): output == p3_24?pow3(2.4, out, 0):pow3(2.2, out, 0);
+    
+    }else if(output == rec2020pq || output == rec2020hlg){
 
         out *= display_white_gain;
 
@@ -579,18 +595,13 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         out = maxf3(0, out);
         out = output == rec2020pq ? eotf_pq(out, 1):output == rec2020hlg?eotf_hlg(out,1):out;
 
-        }
+    } else if (output == xyzd65_26 || output == xyzdci_26){
 
-    } else if (output == Bt1886) {
-            rgb = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f);
-            out = EnergyCorrection(rgb, out,matrix_rec709_to_xyz);
-            out = maxf3(0, rgb);
-            out = pow3(power, out, 0);
+        out = vdot(matrix_p3d65_to_xyz, out);
+        out = pow3(2.6, out, 0);
 
-    } else if (output == Log2499){
-        
-            out = log2499;
-    }    
+    }
+}  
 
     return out;
 }
