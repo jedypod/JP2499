@@ -2,7 +2,7 @@
 
 /*------------------------------------------------
     Custom Curves for 2499LOG
-    v0.0.3
+    v0.0.4
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -85,7 +85,9 @@ __DEVICE__ float general_sigmoid(float x,float m,float a1,float b1,float c1,floa
 __DEVICE__ float inv_general_sigmoid(float x,float m,float a1,float b1,float c1,float d1) {
 
     x = _powf(x/m,1/d1);
-    return (_powf(c1*x/(1-x),1/b1)-a1);
+    x = (_powf(c1*x/(1-x),1/b1)-a1);
+
+    return _fminf( 65504.0f,x);
    
 }
 __DEVICE__ float full_sigmoid(float in,float middle_grey_in,float middle_grey,float middle_grey_contrast,float contrast_skewness,float display_white_target,float display_black_target,int inv) {
@@ -157,9 +159,11 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     float3 rgb = make_float3(p_R, p_G, p_B);
 
-    float3 in = rgb;
+    float3 white = make_float3(_powf(1.5,wtm),_powf(1.5,-wtn),_powf(1.5,-wtm));
 
-    const float wtm_abs = wtm > 0.0f ? wtm : -wtm;
+    white /= _fmaxf(white.x,_fmaxf(white.y,white.z));
+
+    float3 in = rgb;
 
     float middle_grey_in = 0.18f;
     float middle_grey = _powf(0.1,1/2.4);
@@ -172,11 +176,10 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     rgb = maxf3(0, rgb);
 
-    rgb.x = full_sigmoid(rgb.x,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness - ltm      ,display_white_target*_powf(1.1f, wtm - wtm_abs),display_black_target,0);
-    rgb.y = full_sigmoid(rgb.y,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness - ltm * ltn,display_white_target*_powf(1.1f, wtm*wtn - wtm_abs),display_black_target,0);
-    rgb.z = full_sigmoid(rgb.z,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness + ltm      ,display_white_target*_powf(1.1f, -wtm - wtm_abs),display_black_target,0);
+    rgb.x = full_sigmoid(rgb.x,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness - ltm      ,display_white_target*white.x,display_black_target,0);
+    rgb.y = full_sigmoid(rgb.y,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness - ltm * ltn,display_white_target*white.y,display_black_target,0);
+    rgb.z = full_sigmoid(rgb.z,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness + ltm      ,display_white_target*white.z,display_black_target,0);
 
-    
     rgb = _f3full_sigmoid(rgb,middle_grey_in,middle_grey,1,0,1,0,1);
 
     rgb.x = oetf_davinci_intermediate(rgb.x, 0);
