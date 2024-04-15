@@ -1,7 +1,7 @@
 #line 2
 /*------------------------------------------------
     2499DRT
-    v1.1.0
+    v1.1.1
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -21,13 +21,13 @@ __DEVICE__ float3x3 make_float3x3(float3 a, float3 b, float3 c) {
 
 
 #define matrix_davinciwg_to_xyz                                                                                                            \
-    make_float3x3(make_float3(0.700622320175f, 0.148774802685f, 0.101058728993f),                                                          \
-                  make_float3(0.274118483067f, 0.873631775379f, -0.147750422359f),                                                         \
-                  make_float3(-0.098962903023f, -0.137895315886, 1.325916051865f))
+    make_float3x3(make_float3( 0.700622320175f, 0.148774802685f, 0.101058728993f),                                                         \
+                  make_float3( 0.274118483067f, 0.873631775379f,-0.147750422359f),                                                         \
+                  make_float3(-0.098962903023f,-0.137895315886f, 1.325916051865f))
 #define matrix_xyz_to_rec709                                                                                                               \
-    make_float3x3(make_float3(3.2409699419f, -1.53738317757f, -0.498610760293f),                                                           \
+    make_float3x3(make_float3(   3.2409699419f,  -1.53738317757f,-0.498610760293f),                                                        \
                   make_float3(-0.969243636281f, 1.87596750151f, 0.041555057407f),                                                          \
-                  make_float3(0.055630079697f, -0.203976958889f, 1.05697151424f))
+                  make_float3( 0.055630079697f, -0.203976958889f, 1.05697151424f))
 #define matrix_rec709_to_xyz                                                                                                               \
     make_float3x3(make_float3(0.412390917540f, 0.357584357262f, 0.180480793118f),                                                          \
                   make_float3(0.212639078498f, 0.715168714523f, 0.072192311287f),                                                          \
@@ -37,20 +37,15 @@ __DEVICE__ float3x3 make_float3x3(float3 a, float3 b, float3 c) {
                   make_float3(0.228974640369f, 0.691738605499f, 0.079286918044f),                                                          \
                   make_float3(-0.000000000000f, 0.045113388449, 1.043944478035f))
 #define matrix_xyz_to_rec2020                                                                                                              \
-    make_float3x3(make_float3( 1.71665119f, -0.35567078f, -0.25336628f),                                                                   \
-                  make_float3(-0.66668435f,  1.61648124f,  0.01576855f),                                                                   \
-                  make_float3( 0.01763986f, -0.04277061f,  0.94210312))
+    make_float3x3(make_float3(  1.71665118797f, -0.355670783776f, -0.253366281374f),                                                       \
+                  make_float3(-0.666684351832f,   1.61648123664f,  0.015768545814f),                                                       \
+                  make_float3( 0.017639857445f, -0.042770613258f,  0.942103121235f))
 //APO/ACES 2065-1 to DWG using cat02 for chroamtic adaptation
 #define matrix_AP0_to_DWG                                                                                                                  \
     make_float3x3(make_float3( 1.32832312f,-0.21352364f,-0.11479948f),                                                                     \
                   make_float3(-0.01316075f, 0.91286542f, 0.10029534f),                                                                     \
                   make_float3( 0.09831923f, 0.07961846f, 0.82206231f))
 
-// Multiply float3 vector a and 3x3 matrix m
-__DEVICE__ inline float3 mult_f3_f33(float3 a, float3x3 m) {
-    return make_float3(
-        m.x.x * a.x + m.x.y * a.y + m.x.z * a.z, m.y.x * a.x + m.y.y * a.y + m.y.z * a.z, m.z.x * a.x + m.z.y * a.y + m.z.z * a.z);
-}
 
 __DEVICE__ inline float3x3 inv_f33(float3x3 m) {
     float d = m.x.x * (m.y.y * m.z.z - m.z.y * m.y.z) - m.x.y * (m.y.x * m.z.z - m.y.z * m.z.x) + m.x.z * (m.y.x * m.z.y - m.y.y * m.z.x);
@@ -195,7 +190,6 @@ __DEVICE__ inline float3 avgweights(float3x3 mt) {
 }
 
 
-
 __DEVICE__ inline float3 EnergyCorrection(float3 pre, float3 post,float3x3 mt) {
 
     float PI_LOCAL = _atan2f(1, 1) * 4;
@@ -214,7 +208,6 @@ __DEVICE__ inline float3 EnergyCorrection(float3 pre, float3 post,float3x3 mt) {
 
     return out;
 }
-
 
 
 __DEVICE__ inline float3 NonLinearGamutMapping(float3 in, float p, float m, float t0) {
@@ -254,29 +247,6 @@ __DEVICE__ inline float3 rec709_2_moment(float3 rgb) {
     return hma;
 }
 
-__DEVICE__ inline float satmask(float3 rgb) {
-
-    float PI_LOCAL = _atan2f(1, 1) * 4;
-
-    rgb = vdot(matrix_rec709_to_xyz, rgb);
-
-    float3 white = vdot(matrix_rec709_to_xyz, make_float3(1, 1, 1));
-
-    rgb = rgb / white;
-
-    float avg = (rgb.x + rgb.y + rgb.z) / 3;
-
-    float3 hma = make_float3(
-        _atan2f(0.5f * (2.0f * rgb.x - rgb.y - rgb.z), (rgb.y - rgb.z) * _sqrtf(3.0f / 4.0f)),
-        avg == 0 ? 0 : _sqrtf((rgb.x - avg) * (rgb.x - avg) + (rgb.y - avg) * (rgb.y - avg) + (rgb.z - avg) * (rgb.z - avg)) / (2 * avg),
-        avg);
-
-    hma.x = (hma.x < 0 ? hma.x + 2 * PI_LOCAL : hma.x) / (2 * PI_LOCAL);
-
-    return hma.y;
-}
-
-
 // Calculate a matrix that separately inset each primary
 __DEVICE__ inline float3x3 simpleInsetMatrix(float red, float green, float blue, int inv) {
 
@@ -295,8 +265,27 @@ __DEVICE__ inline float3x3 simpleInsetMatrix(float red, float green, float blue,
     return M;
 }
 
+__DEVICE__ inline float satmask(float3 rgb) {
 
-__DEVICE__ float3 inline DanieleCurve(float3 rgb, float mx,float my,float py,float g,float o, int inv) {
+    float PI_LOCAL = _atan2f(1, 1) * 4;
+
+    rgb = vdot(simpleInsetMatrix(0.1,0.4,0.1,0),rgb);
+
+    float avg = (rgb.x + rgb.y + rgb.z) / 3;
+
+    float3 hma = make_float3(
+        _atan2f(0.5f * (2.0f * rgb.x - rgb.y - rgb.z), (rgb.y - rgb.z) * _sqrtf(3.0f / 4.0f)),
+        avg == 0 ? 0 : _sqrtf((rgb.x - avg) * (rgb.x - avg) + (rgb.y - avg) * (rgb.y - avg) + (rgb.z - avg) * (rgb.z - avg)) / (2 * avg),
+        avg);
+
+    hma.x = (hma.x < 0 ? hma.x + 2 * PI_LOCAL : hma.x) / (2 * PI_LOCAL);
+
+    return hma.y;
+}
+
+
+
+__DEVICE__ float3 inline modifiedDanieleCurve(float3 rgb, float mx,float my,float py,float g,float o, int inv) {
 
     float mi = 0.5*(my + _sqrtf( my * my + 4 * my * o));
     float pi = 0.5*(py + _sqrtf( py * py + 4 * py * o));
@@ -332,6 +321,11 @@ __DEVICE__ float3 inline DanieleCurve(float3 rgb, float mx,float my,float py,flo
 __DEVICE__ inline float3 maxf3(float b, float3 a) {
     // For each component of float3 a, return max of component and float b
     return make_float3(_fmaxf(a.x, b), _fmaxf(a.y, b), _fmaxf(a.z, b));
+}
+
+__DEVICE__ float3 minf3(float b, float3 a) {
+    // For each component of float3 a, return max of component and float b
+    return make_float3(_fminf(a.x, b), _fminf(a.y, b), _fminf(a.z, b));
 }
 
 __DEVICE__ inline float3 pow3(float b, float3 a, int inv) {
@@ -403,45 +397,40 @@ __DEVICE__ inline float3 eotf_hlg(float3 rgb, int inverse) {
 
 // clang-format off
 // Higher density value makes saturated values darker, lower values makes them brighter, achromatic is not affected
-DEFINE_UI_PARAMS(den, Density, DCTLUI_SLIDER_FLOAT, 1, 0, 2, 0.001)
+DEFINE_UI_PARAMS(den, Density, DCTLUI_SLIDER_FLOAT, 1, 0, 1.5, 0.001)
 
 // Rotate hue flight
 // mainly rotate red primary, to the right is warmer/orange, and to the left colder/magenta
-DEFINE_UI_PARAMS(rot_r, Overall Rotate Hue R ╮, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_r, Overall Rotate Hue R -, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
 // mainly rotate green primary, to the right is warmer/yellow, and to the left colder/cyan
-DEFINE_UI_PARAMS(rot_g, G ┤, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_g, G |, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
 // mainly rotate blue primary, to the right is colder/cyan, and to the left is warmer/magenta
-DEFINE_UI_PARAMS(rot_b, B ╯, DCTLUI_SLIDER_FLOAT, 0.23, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_b, B |, DCTLUI_SLIDER_FLOAT, 0.23, -0.5, 0.5, 0.1)
 
 // Highligh rotation direction is the same as the overall hue rotate, but it mainly affect bright values
-DEFINE_UI_PARAMS(rot_rh, Highlight Rotate Hue R ╮, DCTLUI_SLIDER_FLOAT, 0.2, -0.5, 0.5, 0.1)
-DEFINE_UI_PARAMS(rot_gh, G ┤, DCTLUI_SLIDER_FLOAT, 0.3, -0.5, 0.5, 0.1)
-DEFINE_UI_PARAMS(rot_bh, B ╯, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_rh, Highlight Rotate Hue R -, DCTLUI_SLIDER_FLOAT, 0.05, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_gh, G |, DCTLUI_SLIDER_FLOAT, 0.3, -0.5, 0.5, 0.1)
+DEFINE_UI_PARAMS(rot_bh, B |, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.1)
 
 // Increase purity of the primaries individually, higher value is more pure,reducing the slider can help in case of very chromatic values
 // breaking(99% of cases the default is smooth enough)
-DEFINE_UI_PARAMS(rsat, Purity R ╮, DCTLUI_SLIDER_FLOAT, 0.458, 0.0, 1, 0.001)
-DEFINE_UI_PARAMS(gsat, G ┤ , DCTLUI_SLIDER_FLOAT, 0.752, 0.0, 1, 0.001)
-DEFINE_UI_PARAMS(bsat, B ╯ , DCTLUI_SLIDER_FLOAT, 0.285, 0.0, 1, 0.001)
+DEFINE_UI_PARAMS(rsat, Purity R -, DCTLUI_SLIDER_FLOAT, 0.258, 0.0, 1, 0.001)
+DEFINE_UI_PARAMS(gsat, G | , DCTLUI_SLIDER_FLOAT, 0.652, 0.0, 1, 0.001)
+DEFINE_UI_PARAMS(bsat, B | , DCTLUI_SLIDER_FLOAT, 0.185, 0.0, 1, 0.001)
 
 // Scale output by this much.
-DEFINE_UI_PARAMS(output_diffuse_white, HDR Output Diffuse White, DCTLUI_SLIDER_FLOAT, 100.0, 100.0, 1000.0, 10.0)
+DEFINE_UI_PARAMS(output_diffuse_white, HDR Diffuse White, DCTLUI_SLIDER_FLOAT, 100.0, 100.0, 1000.0, 10.0)
 
 
 // You can use this DCTL as an IDT plus ODT pipeline, one instance converts to 2499 LOG and then a second one converts LOG 2499 to P3d56 2.4
-// or BT1886,some grading operations are better dont like negative values, 2499 LOG doesn't have any negative so its the great step for
+// or BT1886,some grading operations are better as they are not made to handle them, 2499 LOG doesn't have any negative so its the great step for
 // those operations, for example blurring, sharpening, grain,halation ,split-toning, etc
 DEFINE_UI_PARAMS(input, Input, DCTLUI_COMBO_BOX, 0, {DWG_DI, DWG_LIN, film2499,ACES}, {DWG DI, DWG Lin, 2499 LOG,ACES 2065-1})
-//DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 1, {Log2499,Bt1886, p3d65, rec2020pq,rec2020hlg}, {2499 LOG,BT .1886, P3D65 G2 .4, Rec2020 PQ/ST-2084,Rec2020 HLG})
 DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 1,{Log2499,Bt1886 ,srgb,p3theatrical,p3_24,applep3,p3dcitheatrical ,rec2020pq,rec2020hlg,xyzdci_26,xyzd65_26},{2499LOG - DRT intermediate space,Rec 709 Power 2.4 - BT.1886,Rec 709 Power 2.2 - sRGB,P3D65 Power 2.6 - Theatrical Projection,P3D65 Power 2.4 ,P3D65 Power 2.2 - Apple P3,P3DCI Power 2.6 - Theatrical Projection,Rec2020 ST2048 PQ  (P3 limited),Rec2020 HLG (P3 limited),XYZ DCI Power 2.6 - DCP (P3 limited),XYZ D65 Power 2.6 - DCP (P3 limited)})
 
 // clang-format on
 
 __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
-
-
-    // power used for the display encoding of the image
-    float power = 2.4;
 
     // Display White point scaling
     float display_white_gain = output == rec2020pq ? (output_diffuse_white / 10000.0):output == rec2020hlg?(output_diffuse_white / 1000.0) : 1.0f;
@@ -451,6 +440,11 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     float3 weights = avgweights(matrix_rec709_to_xyz);
 
     float3 rgb = make_float3(p_R, p_G, p_B);
+    
+    //check if there are infinite values and convert to the maximum value of a 16bit float , that is 65,500 no camera will produce this value, basically only for cg or synthetic images
+    rgb.x = isinf(rgb.x)?6.55f*_powf(10.0f,4.0f):rgb.x;
+    rgb.y = isinf(rgb.y)?6.55f*_powf(10.0f,4.0f):rgb.y;
+    rgb.z = isinf(rgb.z)?6.55f*_powf(10.0f,4.0f):rgb.z;
 
     float3 log2499;
 
@@ -472,6 +466,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
         rgb = vdot(matrix_davinciwg_to_xyz, rgb);
         rgb = vdot(matrix_xyz_to_rec709, rgb);
+        
 
         // calculates "saturation" using a mcAdams moment space
         float satm = satmask(rgb);
@@ -493,7 +488,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         operation to bring those values to positve multiply the final energy ratio by the gamut mapped rgb
         */
 
-        rgb = NonLinearGamutMapping(rgb, 0.08f, 0.0f, 1.0f);
+        rgb = NonLinearGamutMapping(rgb, 0.03f, 0.0f, 1.0f);
         rgb = EnergyCorrection(rgb_copy,rgb,matrix_rec709_to_xyz);
 
         // make a copy of rgb that will be needed to restore the energy after the following operations
@@ -512,10 +507,10 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
         // apply the "highlight" hue matrix
         // mix the pre-highlight matrix and the post-matrix using the lum
-        rgb = _mix(rgb, mult_f3_f33(rgb, M1), lum);
+        rgb = _mix(rgb, vdot(M1,rgb), lum);
 
         // apply the overall  hue matrix
-        rgb = mult_f3_f33(rgb, M2);
+        rgb = vdot(M2,rgb);
 
         // Again!! calculate energy for the desturation of very emissive values
         float norm = weights.x * rgb.x + weights.y * rgb.y + weights.z * rgb.z;
@@ -549,16 +544,16 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     // I can know map to display using per-chanell sigmoid, I have 2 options , basecon is exactly like the current one used in ACES2
 
-    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,0);
+    rgb = modifiedDanieleCurve(rgb,0.18,0.1,1,1.15,0.04,0);
 
     // Add some purity for preferential look
-    rgb = mult_f3_f33(rgb, simpleInsetMatrix(rsat / 10, gsat / 10, bsat / 10, 1));
+    rgb = vdot(simpleInsetMatrix(rsat / 10, gsat / 10, bsat / 10, 1),rgb);
 
     float3 out;
 
     // Encode for display
 
-float3 p3d65_to_dci = make_float3(0.950159810718f,0.8333128995f,1.0f);
+    float3 p3d65_to_dci = make_float3(0.950159810718f,0.8333128995f,1.0f);
 
 if (output == Bt1886 || output == srgb){
 
@@ -588,11 +583,9 @@ if (output == Bt1886 || output == srgb){
     }else if(output == rec2020pq || output == rec2020hlg){
 
         out *= display_white_gain;
-
-        // Display encoding
         out = vdot(matrix_p3d65_to_xyz, out);
         out = vdot(matrix_xyz_to_rec2020, out);
-        out = maxf3(0, out);
+        out = maxf3(0.0f, out);
         out = output == rec2020pq ? eotf_pq(out, 1):output == rec2020hlg?eotf_hlg(out,1):out;
 
     } else if (output == xyzd65_26 || output == xyzdci_26){
