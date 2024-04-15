@@ -2,7 +2,7 @@
 
 /*------------------------------------------------
     Custom Curves for 2499LOG
-    v0.0.4
+    v0.0.5
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -160,7 +160,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     float3 rgb = make_float3(p_R, p_G, p_B);
 
     float3 white = make_float3(_powf(1.5,wtm),_powf(1.5,-wtn),_powf(1.5,-wtm));
-
+    display_white_target = _fminf(display_white_target,0.9999);
     white /= _fmaxf(white.x,_fmaxf(white.y,white.z));
 
     float3 in = rgb;
