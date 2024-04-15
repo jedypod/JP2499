@@ -269,7 +269,7 @@ __DEVICE__ inline float satmask(float3 rgb) {
 
     float PI_LOCAL = _atan2f(1, 1) * 4;
 
-    rgb = vdot(simpleInsetMatrix(0.1,0.4,0.1,0),rgb);
+    rgb = vdot(simpleInsetMatrix(0.1,0.6,0.1,0),rgb);
 
     float avg = (rgb.x + rgb.y + rgb.z) / 3;
 
