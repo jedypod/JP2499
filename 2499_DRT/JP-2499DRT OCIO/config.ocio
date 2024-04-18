@@ -1,0 +1,170 @@
+ocio_profile_version: 2
+
+environment:
+  {}
+search_path: LUTs
+strictparsing: true
+luma: [0.2126, 0.7152, 0.0722]
+description: A dangerous picture formation chain designed for Eduardo Suazo and Chris Brejon.
+
+roles:
+  color_picking: sRGB
+  color_timing: sRGB
+  compositing_log: sRGB
+  data: Generic Data
+  default: sRGB
+  default_byte: sRGB
+  default_float: Linear BT.709
+  default_sequencer: sRGB
+  matte_paint: sRGB
+  reference: Linear BT.709
+  scene_linear: Linear BT.709
+  texture_paint: sRGB
+
+file_rules:
+  - !<Rule> {name: Default, colorspace: default}
+
+displays:
+  sRGB:
+    - !<View> {name: Display Native, colorspace: sRGB}
+    - !<View> {name: 2499DRT, colorspace: 2499DRT Base}
+  Display P3:
+    - !<View> {name: Display Native, colorspace: Display P3}
+    - !<View> {name: 2499DRT, colorspace: 2499DRT Base Display P3}
+  BT.1886:
+    - !<View> {name: Display Native, colorspace: BT.1886}
+    - !<View> {name: 2499DRT, colorspace: 2499DRT Base BT.1886}
+
+active_displays: []
+active_views: []
+
+colorspaces:
+  - !<ColorSpace>
+    name: Linear BT.709
+    aliases: [Linear, Linear Tristimulus]
+    family: Colourspaces
+    equalitygroup: ""
+    bitdepth: unknown
+    description: Open Domain Linear BT.709 Tristimulus
+    isdata: false
+    allocation: uniform
+
+  - !<ColorSpace>
+    name: 2499DRT Log (2499)
+    aliases: [Log, 2499DRT Log, 2499, 2499DRT 2499 Log]
+    family: Log Encodings
+    equalitygroup: ""
+    bitdepth: unknown
+    description: 2499DRT Log, (2499)
+    isdata: false
+    allocation: uniform
+    from_scene_reference: !<GroupTransform>
+      children:
+        - !<MatrixTransform> {matrix: [0.56279692, 0.32353076, 0.11374766, 0.00000000, 0.07769616, 0.74961017, 0.17266308, 0.00000000, 0.06464207, 0.19200710, 0.74330971, 0.00000000, 0.00000000, 0.00000000, 0.00000000, 1.00000000]}
+        - !<AllocationTransform> {allocation: lg2, vars: [-11, 6.64382,0.00048828]}
+        - !<FileTransform> {src: Log2_2499log.cube, interpolation: tetrahedral}
+
+  - !<ColorSpace>
+    name: 2.2 EOTF Encoding
+    aliases: [sRGB EOTF Encoding]
+    family: Utilities/Curves
+    equalitygroup: ""
+    bitdepth: unknown
+    description: 2.2 Exponent EOTF Encoding
+    isdata: false
+    allocation: uniform
+    from_scene_reference: !<ExponentTransform> {value: 2.2, direction: inverse}
+
+  - !<ColorSpace>
+    name: 2.4 EOTF Encoding
+    aliases: [BT.1886 EOTF Encoding]
+    family: Utilities/Curves
+    equalitygroup: ""
+    bitdepth: unknown
+    description: 2.4 Exponent EOTF Encoding
+    isdata: false
+    allocation: uniform
+    from_scene_reference: !<ExponentTransform> {value: 2.4, direction: inverse}
+
+  - !<ColorSpace>
+    name: sRGB
+    family: Displays/SDR
+    equalitygroup: ""
+    bitdepth: unknown
+    description: sRGB IEC 61966-2-1 2.2 Exponent Reference EOTF Display
+    isdata: false
+    allocation: uniform
+    from_scene_reference: !<ColorSpaceTransform> {src: Linear BT.709, dst: 2.2 EOTF Encoding}
+
+  - !<ColorSpace>
+    name: Display P3
+    family: Displays/SDR
+    equalitygroup: ""
+    bitdepth: unknown
+    description: Display P3 2.2 Exponent EOTF Display
+    isdata: false
+    allocation: uniform
+    from_scene_reference: !<GroupTransform>
+      children:
+        - !<MatrixTransform> {matrix: [0.822533651175139, 0.17754580666797, 5.36947712599933e-05, 0, 0.0331170846132368, 0.966848142976822, -3.14995811217383e-06, 0, 0.0170564417474994, 0.0724006113523901, 0.910489265923157, 0, 0, 0, 0, 1]}
+        - !<ColorSpaceTransform> {src: Linear BT.709, dst: 2.2 EOTF Encoding}
+
+  - !<ColorSpace>
+    name: BT.1886
+    family: Displays/SDR
+    equalitygroup: ""
+    bitdepth: unknown
+    description: BT.1886 2.4 Exponent EOTF Display
+    isdata: false
+    allocation: uniform
+    from_scene_reference: !<ColorSpaceTransform> {src: Linear BT.709, dst: 2.4 EOTF Encoding}
+
+  - !<ColorSpace>
+    name: 2499DRT Base
+    family: Image Formation
+    equalitygroup: ""
+    bitdepth: unknown
+    description: 2499DRT Base Image Encoding
+    isdata: false
+    allocation: uniform
+    from_scene_reference: !<GroupTransform>
+      children:
+        - !<ColorSpaceTransform> {src: Linear BT.709, dst: 2499DRT Log (2499)}
+        - !<FileTransform> {src: 2499log_to_Base.cube, interpolation: tetrahedral}
+        - !<ExponentTransform> {value: 0.9, direction: forward}
+
+  - !<ColorSpace>
+    name: 2499DRT Base BT.1886
+    family: Views/2499DRT BT.1886
+    equalitygroup: ""
+    bitdepth: unknown
+    description: 2499DRT Base Image Encoding for BT.1886 Displays
+    isdata: false
+    allocation: uniform
+    from_scene_reference: !<GroupTransform>
+      children:
+        - !<ColorSpaceTransform> {src: Linear BT.709, dst: 2499DRT Base}
+        - !<ColorSpaceTransform> {src: 2.2 EOTF Encoding, dst: 2.4 EOTF Encoding}
+
+  - !<ColorSpace>
+    name: 2499DRT Base Display P3
+    family: Views/2499DRT Display P3
+    equalitygroup: ""
+    bitdepth: unknown
+    description: 2499DRT Base Image Encoding for Display P3 Displays
+    isdata: false
+    allocation: uniform
+    from_scene_reference: !<GroupTransform>
+      children:
+        - !<ColorSpaceTransform> {src: Linear BT.709, dst: 2499DRT Log (2499)}
+        - !<FileTransform> {src: 2499log_to_P3.cube, interpolation: tetrahedral}
+
+  - !<ColorSpace>
+    name: Generic Data
+    aliases: [Non-Color, Raw]
+    family: Data/Generic Data
+    equalitygroup: ""
+    bitdepth: unknown
+    description: Generic data encoding
+    isdata: true
+    allocation: uniform
