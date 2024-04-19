@@ -1,7 +1,7 @@
 #line 2
 /*------------------------------------------------
     2499DRT
-    v1.1.2
+    v1.1.3
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -557,9 +557,9 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
 if (output == Bt1886 || output == srgb){
 
-    rgb = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f);
-    out = EnergyCorrection(rgb, out,matrix_rec709_to_xyz);
-    out = maxf3(0, rgb);
+    out = NonLinearGamutMapping(rgb, 0.01f, 0.0f, 1.0f);
+    out = EnergyCorrection(rgb,out,matrix_rec709_to_xyz);
+    out = maxf3(0, out);
     out = output==Bt1886?pow3(2.4, out, 0):pow3(2.2, out, 0);
 
 } else if (output == Log2499){
