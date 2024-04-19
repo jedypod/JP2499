@@ -1,7 +1,7 @@
 #line 2
 /*------------------------------------------------
     2499DRT
-    v1.1.1
+    v1.1.2
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -367,7 +367,7 @@ __DEVICE__ inline float3 eotf_hlg(float3 rgb, int inverse) {
   // ITU-R Rec BT.2100-2 https://www.itu.int/rec/R-REC-BT.2100
   // ITU-R Rep BT.2390-8: https://www.itu.int/pub/R-REP-BT.2390
   // Perceptual Quantiser (PQ) to Hybrid Log-Gamma (HLG) Transcoding: https://www.bbc.co.uk/rd/sites/50335ff370b5c262af000004/assets/592eea8006d63e5e5200f90d/BBC_HDRTV_PQ_HLG_Transcode_v2.pdf
-
+  rgb = maxf3(1e-10f, rgb);
   const float HLG_Lw = 1000.0f;
   // const float HLG_Lb = 0.0f;
   const float HLG_Ls = 5.0f;
@@ -378,7 +378,7 @@ __DEVICE__ inline float3 eotf_hlg(float3 rgb, int inverse) {
   if (inverse == 1) {
     float Yd = 0.2627f*rgb.x + 0.6780f*rgb.y + 0.0593f*rgb.z;
     // HLG Inverse OOTF
-    rgb = rgb*_powf(Yd, (1.0f - h_g)/h_g);
+    rgb = rgb*spowf(Yd, (1.0f - h_g)/h_g);
     // HLG OETF
     rgb.x = rgb.x <= 1.0f/12.0f ? _sqrtf(3.0f*rgb.x) : h_a*_logf(12.0f*rgb.x - h_b) + h_c;
     rgb.y = rgb.y <= 1.0f/12.0f ? _sqrtf(3.0f*rgb.y) : h_a*_logf(12.0f*rgb.y - h_b) + h_c;
