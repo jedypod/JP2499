@@ -27,3 +27,5 @@ It builds upon the adjustments made in the previous step, it's very subtle but i
 it helps with sensor that clip early at high exposures.
 
 The rest of the operations are a sigmoid, and a final purity matrix, this matrix will re-introduce some negative values aswell as above 1, an extra gamut mapping helps to prevent emissive looking values for objects that shouldn't be emissive and clipping at the display level
+
+Non of the sample images were original taken by me, I found many images freely available as RAW files from cameras of all vendors. Sony, Canon, Leica, Fuji, and Nikon.
