@@ -1,4 +1,4 @@
-#The 2499 DRT Process: A Breakdown of the most important stuff
+# The 2499 DRT Process: A Breakdown of the most important stuff
 
 The DRT process consists of mainly four key steps, some focused on technical aspects and others on aesthetics. 
 Let's explore them in the order they are applied:
