@@ -22,5 +22,4 @@ different projects may require unique parameters for these matrices.
 It builds upon the adjustments made in the previous step, it's very subtle but important. For example, 
 it helps with sensor that clip early at high exposures.
 
-The rest of the operations are a sigmoid, and a final purity matrix, this matrix doesn't make any values above 1 and the previous operations
-plus an extra gamut mapping helps to prevent emissive looking values for objects that shouldn't be emissive.
+The rest of the operations are a sigmoid, and a final purity matrix, this matrix will re-introduce some negative values aswell as above 1, an extra gamut mapping helps to prevent emissive looking values for objects that shouldn't be emissive and clipping at the display level
