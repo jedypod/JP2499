@@ -1,7 +1,7 @@
 #line 2
 /*------------------------------------------------
     2499DRT
-    v1.1.4
+    v1.1.5
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -432,7 +432,7 @@ DEFINE_UI_PARAMS(gsat, G | , DCTLUI_SLIDER_FLOAT, 0.652, 0.0, 1, 0.001)
 DEFINE_UI_PARAMS(bsat, B | , DCTLUI_SLIDER_FLOAT, 0.185, 0.0, 1, 0.001)
 
 // Scale output by this much.
-DEFINE_UI_PARAMS(output_diffuse_white, HDR Diffuse White, DCTLUI_SLIDER_FLOAT, 300.0, 100.0, 1000.0, 10.0)
+DEFINE_UI_PARAMS(output_diffuse_white, HDR Peak Nits, DCTLUI_SLIDER_FLOAT, 300.0, 100.0, 1000.0, 10.0)
 //DEFINE_UI_PARAMS(highlight_desat, Desat Highlight, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.01)
 
 
