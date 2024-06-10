@@ -1,7 +1,7 @@
 #line 2
 /*------------------------------------------------
     2499DRT
-    v1.1.5
+    v1.2.1
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -260,7 +260,7 @@ __DEVICE__ inline float3 rec709_2_moment(float3 rgb) {
 // Calculate a matrix that separately inset each primary
 __DEVICE__ inline float3x3 simpleInsetMatrix(float red, float green, float blue, int inv) {
 
-    float3 white = make_float3(1, 1, 1);
+    float3 white = make_float3(1.0f, 1.0f, 1.0f);
 
     float gain_coef = 1 + red + green + blue;
 
@@ -406,6 +406,21 @@ __DEVICE__ inline float3 eotf_hlg(float3 rgb, int inverse) {
   return rgb;
 }
 
+__DEVICE__ float inline unroll_highlight(float x,float peak,float input_middle_grey) {
+
+  x = x < 0 ? ( ( input_middle_grey - 1.0f ) * peak * x ) / ( (1 - peak) * x - peak + input_middle_grey) : ( ( input_middle_grey - 1.0f ) * peak * x ) / ( ( peak - 1.0f ) * x - peak + input_middle_grey);
+
+    return x;
+}
+
+__DEVICE__ float3 inline unroll_highlight3(float3 rgb,float peak,float input_middle_grey,float output_middle_grey) {
+    rgb.x = unroll_highlight(rgb.x,peak * input_middle_grey / output_middle_grey ,input_middle_grey) * output_middle_grey / input_middle_grey;
+    rgb.y = unroll_highlight(rgb.y,peak * input_middle_grey / output_middle_grey ,input_middle_grey) * output_middle_grey / input_middle_grey;
+    rgb.z = unroll_highlight(rgb.z,peak * input_middle_grey / output_middle_grey ,input_middle_grey) * output_middle_grey / input_middle_grey;
+
+    return rgb;
+}
+
 
 
 // clang-format off
@@ -432,7 +447,7 @@ DEFINE_UI_PARAMS(gsat, G | , DCTLUI_SLIDER_FLOAT, 0.652, 0.0, 1, 0.001)
 DEFINE_UI_PARAMS(bsat, B | , DCTLUI_SLIDER_FLOAT, 0.185, 0.0, 1, 0.001)
 
 // Scale output by this much.
-DEFINE_UI_PARAMS(output_diffuse_white, HDR Peak Nits, DCTLUI_SLIDER_FLOAT, 300.0, 100.0, 1000.0, 10.0)
+DEFINE_UI_PARAMS(output_diffuse_white, HDR Peak White, DCTLUI_SLIDER_FLOAT, 300.0, 100.0, 1000.0, 10.0)
 //DEFINE_UI_PARAMS(highlight_desat, Desat Highlight, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.01)
 
 
@@ -441,6 +456,7 @@ DEFINE_UI_PARAMS(output_diffuse_white, HDR Peak Nits, DCTLUI_SLIDER_FLOAT, 300.0
 // those operations, for example blurring, sharpening, grain,halation ,split-toning, etc
 DEFINE_UI_PARAMS(input, Input, DCTLUI_COMBO_BOX, 0, {DWG_DI, DWG_LIN, film2499,ACES}, {DWG DI, DWG Lin, 2499 LOG,ACES 2065-1})
 DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 1,{Log2499,Bt1886 ,srgb,p3theatrical,p3_24,applep3,p3dcitheatrical ,rec2020pq,rec2020hlg,xyz_26},{2499LOG - DRT intermediate space,Rec 709 Power 2.4 - BT.1886,Rec 709 Power 2.2 - sRGB,P3D65 Power 2.6 - Theatrical Projection,P3D65 Power 2.4 ,P3D65 Power 2.2 - Apple P3,P3DCI Power 2.6 - Theatrical Projection,Rec2020 ST2048 PQ  (P3 limited),Rec2020 HLG (P3 limited),XYZ Power 2.6 - DCP (P3 limited)})
+DEFINE_UI_PARAMS(unroll, HDR method, DCTLUI_COMBO_BOX, 0, {gain_SDR, unroll_SDR}, {Gain SDR / Keep SDR Intent, Unroll SDR / Reform Image})
 
 
 // clang-format on
@@ -453,7 +469,11 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     float3 wp_gains = make_float3(1.0f,1.0f,1.0f);  
 
-  wp_gains = wp_gains/max3(wp_gains.x,wp_gains.y,wp_gains.z);
+    wp_gains = wp_gains/max3(wp_gains.x,wp_gains.y,wp_gains.z);
+
+    float peak = output_diffuse_white / 100.0f;
+
+    float mg = 4.0f * peak / 225.0f + 37.0f / 450.f;
 
     // These weights are found by the average of white balanced XYZ values for rec709, they can be calculated from the rec709 to XYZ
     // matrix,I see them as energy weights
@@ -545,7 +565,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
         rgb = maxf3(0, rgb);
 
-        rgb = vdot(simpleInsetMatrix(0, 0.04408, 0, 0),rgb);
+        rgb = vdot(simpleInsetMatrix(0, 0.04408, 0.0, 0),rgb);
 
         // encode using Davinci Intermidate curve only, some operations can look greate if applied in this state
         log2499.x = oetf_davinci_intermediate(rgb.x, 0);
@@ -567,7 +587,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     // I can know map to display using per-chanell sigmoid, I have 2 options , basecon is exactly like the current one used in ACES2
 
-    rgb = modifiedDanieleCurve(rgb,0.18,0.1,1,1.15,0.04,0);
+    rgb = modifiedDanieleCurve(rgb,0.18,0.18,1,1.15,0.04,0);
 
     // Add some purity for preferential look
     rgb = vdot(simpleInsetMatrix(rsat / 10, gsat / 10, bsat / 10, 1),rgb);
@@ -617,10 +637,13 @@ if (output == Bt1886 || output == srgb){
         out  = output == p3dcitheatrical || output == p3theatrical ? pow3(2.6, out, 0): output == p3_24?pow3(2.4, out, 0):pow3(2.2, out, 0);
     
     }else if(output == rec2020pq || output == rec2020hlg){
-
-        out *= display_white_gain;
+        
         out = vdot(matrix_p3d65_to_xyz, out);
         out = vdot(matrix_xyz_to_rec2020, out);
+        out = unroll == 1? unroll_highlight3(rgb,peak,0.1,mg) : out * display_white_gain;
+        if( unroll == 1 ){
+            out = output == rec2020pq? out/100.0f: out/10.0f;
+        }
         out = maxf3(0.0f, out);
         out = output == rec2020pq ? eotf_pq(out, 1):output == rec2020hlg?eotf_hlg(out,1):out;
 
