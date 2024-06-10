@@ -640,7 +640,7 @@ if (output == Bt1886 || output == srgb){
         
         out = vdot(matrix_p3d65_to_xyz, out);
         out = vdot(matrix_xyz_to_rec2020, out);
-        out = unroll == 1? unroll_highlight3(rgb,peak,0.1,mg) : out * display_white_gain;
+        out = unroll == 1? unroll_highlight3(out,peak,0.1,mg) : out * display_white_gain;
         if( unroll == 1 ){
             out = output == rec2020pq? out/100.0f: out/10.0f;
         }
