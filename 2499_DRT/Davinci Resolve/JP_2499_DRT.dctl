@@ -1,7 +1,7 @@
 #line 2
 /*------------------------------------------------
     2499DRT
-    v1.2.1
+    v1.2.2
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -587,7 +587,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     // I can know map to display using per-chanell sigmoid, I have 2 options , basecon is exactly like the current one used in ACES2
 
-    rgb = modifiedDanieleCurve(rgb,0.18,0.18,1,1.15,0.04,0);
+    rgb = modifiedDanieleCurve(rgb,0.18,0.1,1,1.15,0.04,0);
 
     // Add some purity for preferential look
     rgb = vdot(simpleInsetMatrix(rsat / 10, gsat / 10, bsat / 10, 1),rgb);
