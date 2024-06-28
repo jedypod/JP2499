@@ -1,7 +1,7 @@
 #line 2
 /*------------------------------------------------
     2499DRT
-    v1.2.2
+    v1.2.3
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -455,7 +455,7 @@ DEFINE_UI_PARAMS(output_diffuse_white, HDR Peak White, DCTLUI_SLIDER_FLOAT, 300.
 // or BT1886,some grading operations are better as they are not made to handle them, 2499 LOG doesn't have any negative so its the great step for
 // those operations, for example blurring, sharpening, grain,halation ,split-toning, etc
 DEFINE_UI_PARAMS(input, Input, DCTLUI_COMBO_BOX, 0, {DWG_DI, DWG_LIN, film2499,ACES}, {DWG DI, DWG Lin, 2499 LOG,ACES 2065-1})
-DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 1,{Log2499,Bt1886 ,srgb,p3theatrical,p3_24,applep3,p3dcitheatrical ,rec2020pq,rec2020hlg,xyz_26},{2499LOG - DRT intermediate space,Rec 709 Power 2.4 - BT.1886,Rec 709 Power 2.2 - sRGB,P3D65 Power 2.6 - Theatrical Projection,P3D65 Power 2.4 ,P3D65 Power 2.2 - Apple P3,P3DCI Power 2.6 - Theatrical Projection,Rec2020 ST2048 PQ  (P3 limited),Rec2020 HLG (P3 limited),XYZ Power 2.6 - DCP (P3 limited)})
+DEFINE_UI_PARAMS(output, Output, DCTLUI_COMBO_BOX, 1,{Log2499,Bt1886 ,srgb,p3theatrical,p3_24,applep3,p3dcitheatrical ,rec2020pq,rec2020hlg,p3d65pq,xyz_26},{2499LOG - DRT intermediate space,Rec 709 Power 2.4 - BT.1886,Rec 709 Power 2.2 - sRGB,P3D65 Power 2.6 - Theatrical Projection,P3D65 Power 2.4 ,P3D65 Power 2.2 - Apple P3,P3DCI Power 2.6 - Theatrical Projection,Rec2020 ST2048 PQ  (P3 limited),Rec2020 HLG (P3 limited),P3D65 ST2048 PQ,XYZ Power 2.6 - DCP (P3 limited)})
 DEFINE_UI_PARAMS(unroll, HDR method, DCTLUI_COMBO_BOX, 0, {gain_SDR, unroll_SDR}, {Gain SDR / Keep SDR Intent, Unroll SDR / Reform Image})
 
 
@@ -464,7 +464,7 @@ DEFINE_UI_PARAMS(unroll, HDR method, DCTLUI_COMBO_BOX, 0, {gain_SDR, unroll_SDR}
 __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
 
     // Display White point scaling
-    float display_white_gain = output == rec2020pq ? (output_diffuse_white / 10000.0):output == rec2020hlg?(output_diffuse_white / 1000.0) : 1.0f;
+    float display_white_gain = output == rec2020pq || output == p3d65pq? (output_diffuse_white / 10000.0):output == rec2020hlg?(output_diffuse_white / 1000.0) : 1.0f;
 
 
     float3 wp_gains = make_float3(1.0f,1.0f,1.0f);  
@@ -630,7 +630,7 @@ if (output == Bt1886 || output == srgb){
     linear_p3 = NonLinearGamutMapping(linear_p3, 0.01f, 0.0f, 1.0f);
     linear_p3 = EnergyCorrection(out,linear_p3,matrix_p3d65_to_xyz);
     out = 1.0f - linear_p3;
-    out  = output == p3dcitheatrical ? out*p3d65_to_dci : out;
+    out  = output == p3dcitheatrical ? out * p3d65_to_dci : out;
 
     if(output == p3theatrical || output == p3_24 || output == applep3 || output == p3dcitheatrical){
 
@@ -651,6 +651,15 @@ if (output == Bt1886 || output == srgb){
 
         out = vdot(matrix_p3d65_to_xyz, out);
         out = pow3(2.6, out, 0);
+
+    } 
+    else if (output == p3d65pq){
+        out = unroll == 1? unroll_highlight3(out,peak,0.1,mg) : out * display_white_gain;
+        if(unroll == 1){
+            out = out/100;
+        }
+        out = maxf3(0.0f, out);
+        out = eotf_pq(out,1);
 
     }
 }  
