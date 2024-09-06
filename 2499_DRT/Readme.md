@@ -1,3 +1,8 @@
+Support me at: 
+[https://www.buymeacoffee.com/jpzambrano](https://www.buymeacoffee.com/jpzambrano)
+ 
+[paypal.me/jpzambrano99](https://www.paypal.me/jpzambrano99)
+
 # The 2499 DRT Process: A Breakdown of the most important stuff
 
 The DRT process consists of mainly four key steps, some focused on technical aspects and others on aesthetics. 
