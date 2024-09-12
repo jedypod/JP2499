@@ -2,7 +2,7 @@
 
 /*------------------------------------------------
     Split-tone Presets for 2499LOG
-    v0.0.2
+    v0.0.3
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -46,6 +46,19 @@ __DEVICE__ float3 pow3(float b, float3 a, int inv) {
     return make_float3(_powf(a.x, b), _powf(a.y, b), _powf(a.z, b));
 }
 
+__DEVICE__ float sigmoid(float x, float a, float b,float c,float d,float f) {
+
+    x = _powf(x + a, b);
+    return x = c * _powf((x / (x + d)), f);
+
+}
+
+__DEVICE__ float inv_sigmoid(float x, float a, float b,float c,float d,float f) {
+
+    x =_powf(x/c,1/f);
+    return (d * x/(1 - x),1/b) - a;
+
+}
 
 __DEVICE__ float3 DanieleCurve(float3 rgb, float mx,float my,float py,float g,float o, int inv) {
 
@@ -67,7 +80,7 @@ __DEVICE__ float3 DanieleCurve(float3 rgb, float mx,float my,float py,float g,fl
         return rgb;
 
     } else {
-        rgb.x = pi * _powf(rgb.x / (rgb.x + s), g);
+        rgb.x = pi *_powf(rgb.x / (rgb.x + s), g);
         rgb.y = pi *_powf(rgb.y / (rgb.y + s), g);
         rgb.z = pi *_powf(rgb.z / (rgb.z + s), g);
 
@@ -115,13 +128,17 @@ __DEVICE__ float3 cinemanegative(float3 rgb) {
 
     rgb = maxf3(0, rgb);
 
-    rgb.x = _powf(rgb.x + 0.000810361303631f, 0.719580417172f);
-    rgb.y = _powf(rgb.y + 0.00519003602177f, 0.351454360613f);
-    rgb.z = _powf(rgb.z + 0.0115749577962f, 0.221301015414f);
+    // rgb.x = _powf(rgb.x + 0.000810361303631f, 0.719580417172f);
+    // rgb.y = _powf(rgb.y + 0.00519003602177f, 0.351454360613f);
+    // rgb.z = _powf(rgb.z + 0.0115749577962f, 0.221301015414f);
 
-    rgb.x = 46.5063305782f * _powf((rgb.x / (rgb.x + 8.60200542612f)), 1.62976244862f);
-    rgb.y = 278.188146202f * _powf((rgb.y / (rgb.y + 3.26205081561f)), 3.79599173376f);
-    rgb.z = 235.538171802f * _powf((rgb.z / (rgb.z + 0.660240172711f)), 10.8007352528f);
+    // rgb.x = 46.5063305782f * _powf((rgb.x / (rgb.x + 8.60200542612f)), 1.62976244862f);
+    // rgb.y = 278.188146202f * _powf((rgb.y / (rgb.y + 3.26205081561f)), 3.79599173376f);
+    // rgb.z = 235.538171802f * _powf((rgb.z / (rgb.z + 0.660240172711f)), 10.8007352528f);
+
+    rgb.x = sigmoid(rgb.x,0.000810361303631, 0.719580417172, 46.5063305782, 8.602005426120, 1.62976244862);
+    rgb.y = sigmoid(rgb.y,0.005190036021770, 0.351454360613, 278.188146202, 3.262050815610, 3.79599173376);
+    rgb.z = sigmoid(rgb.z,0.011574957796200, 0.221301015414, 235.538171802, 0.660240172711, 10.8007352528);
 
     rgb.x = oetf_davinci_intermediate(rgb.x, 0);
     rgb.y = oetf_davinci_intermediate(rgb.y, 0);
@@ -208,7 +225,7 @@ __DEVICE__ float3 ClassicPrintv2(float3 rgb) {
     rgb.y = oetf_davinci_intermediate(rgb.y, 1);
     rgb.z = oetf_davinci_intermediate(rgb.z, 1);
 
-    rgb = maxf3(0, rgb);
+    rgb = maxf3(-0.0156974393349f, rgb);
 
     rgb.x = _powf(rgb.x + 0.0451021600386f, 0.833474388765f);
     rgb.y = _powf(rgb.y + 0.0156974393349f, 0.850753752201f);
@@ -217,6 +234,35 @@ __DEVICE__ float3 ClassicPrintv2(float3 rgb) {
     rgb.x = _powf((0.999761109276 * rgb.x / (rgb.x + 0.000948027352366f)), 269.764169935f);
     rgb.y = _powf((0.963697301538 * rgb.y / (rgb.y + 0.158899508566f)), 1.65831701278f);
     rgb.z = _powf((0.999482386772 * rgb.z / (rgb.z + 0.00111178325144f)), 201.459984285f);
+
+    rgb = pow3(2.4, rgb, 1);
+
+    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,1);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 0);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 0);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 0);
+
+    return rgb;
+}
+
+__DEVICE__ float3 ClassicPrintv4(float3 rgb) {
+
+    // Bat
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 1);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 1);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 1);
+
+    rgb = maxf3(0, rgb);
+
+    rgb.x = _powf(rgb.x + 0.0198031266432f, 1.24966588469f);
+    rgb.y = _powf(rgb.y + 0.0138605897702f, 1.19028753899f);
+    rgb.z = _powf(rgb.z + 0.0119886519789f, 1.10495665651f);
+
+    rgb.x = _powf((0.959415943004f * rgb.x / (rgb.x + 0.151359628805f)), 1.27157776874f);
+    rgb.y = _powf((0.934556839206f * rgb.y / (rgb.y + 0.234477790324f)), 0.936605985767f);
+    rgb.z = _powf((0.917358682137f * rgb.z / (rgb.z + 0.271972888395f)), 0.903536200339f);
 
     rgb = pow3(2.4, rgb, 1);
 
@@ -252,9 +298,9 @@ __DEVICE__ float3 instantfilm(float3 rgb) {
 
     rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,1);
 
-    rgb.x = oetf_davinci_intermediate(rgb.x*1.251864, 0);
-    rgb.y = oetf_davinci_intermediate(rgb.y*0.963538, 0);
-    rgb.z = oetf_davinci_intermediate(rgb.z*0.617432, 0);
+    rgb.x = oetf_davinci_intermediate(rgb.x * 1.251864, 0);
+    rgb.y = oetf_davinci_intermediate(rgb.y * 0.963538, 0);
+    rgb.z = oetf_davinci_intermediate(rgb.z * 0.617432, 0);
 
     return rgb;
 }
@@ -285,11 +331,21 @@ __DEVICE__ float PowerPSigmoid(float x) {
                      : m * x + o;
 }
 
+
+
 __DEVICE__ float3 strongBandW(float3 rgb) {
 
     rgb.x = 0.04 * rgb.x + 0.6 * rgb.y + 0.36 * rgb.z;
 
-    rgb.x = PowerPSigmoid(rgb.x);
+    float x = rgb.x;
+
+    rgb.x = x < 0.269911196829 ? (3.9 * (x - 0.269911196829))/_powf(1 +_powf(-3.9 * (x - 0.269911196829)/0.406777808268,0.70),1/0.70) + 0.265329391632 : 
+            x > 0.383170356551 ? (3.9 * (x - 0.383170356551))/_powf(1 +_powf( 3.9 * (x - 0.383170356551)/0.310269894910,1.23),1/1.23) + 0.707040114548 :
+            3.9 * x - 0.787324276;
+    
+    // rgb.x = PowerPSigmoid(rgb.x);
+
+    rgb.x = _fminf(0.9999f,rgb.x);
 
     rgb = make_float3(rgb.x, rgb.x, rgb.x);
 
@@ -362,6 +418,132 @@ __DEVICE__ float3 classicprintv3(float3 rgb) {
     return rgb;
 }
 
+__DEVICE__ float3 classicprintv5(float3 rgb) {
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 1);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 1);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 1);
+
+    rgb = maxf3(0, rgb);
+
+    rgb.x = _powf(rgb.x + 0.0799752130659f, 1.12840809504f);
+    rgb.y = _powf(rgb.y + 0.0740728403974f, 1.07878684744f);
+    rgb.z = _powf(rgb.z + 0.0456995090843f, 0.776630437311f);
+
+    rgb.x = 0.913530502448f * _powf(( rgb.x / (rgb.x + 0.0209981247702)), 11.9939421496f);
+    rgb.y = 0.933396555537f * _powf(( rgb.y / (rgb.y + 0.0134650623591f)), 15.5813302143f);
+    rgb.z = 0.893803256795f * _powf(( rgb.z / (rgb.z + 0.00841670188922f)), 32.1094332327f);
+
+    rgb = pow3(2.4, rgb, 1);
+
+    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,1);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 0);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 0);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 0);
+
+    return rgb;
+}
+
+__DEVICE__ float3 C3print(float3 rgb) {
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 1);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 1);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 1);
+
+    rgb = rgb * make_float3(0.74,1.06,1.21);
+
+    //rgb = maxf3(0, rgb);
+
+    rgb.x = _powf(rgb.x + 0.0347694231477f, 1.03105844908f);
+    rgb.y = _powf(rgb.y + 0.0483042087961f, 1.01338030992f);
+    rgb.z = _powf(rgb.z + 0.0809319195539f, 1.11514614913f);
+
+    rgb.x = 0.919024011358*_powf(( rgb.x / (rgb.x + 0.00279711303592f)), 39.0125051478f);
+    rgb.y = 0.949856850436*_powf(( rgb.y / (rgb.y + 0.00250139410695f)), 64.1930951485f);
+    rgb.z = 0.99 *_powf(( rgb.z / (rgb.z + 0.0124162898935f)), 16.1668781685f);
+
+    rgb = pow3(2.2, rgb, 1);
+
+    rgb = DanieleCurve(rgb,0.18,0.1,1,1.15,0.04,1);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 0);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 0);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 0);
+
+    return rgb;
+}
+
+__DEVICE__ float3 Nippon(float3 rgb) {
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 1);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 1);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 1);
+
+    //rgb = maxf3(0, rgb);
+
+    //rgb.y = _fminf(rgb.y,28.9599);
+
+    rgb *= _powf(2,0.72);
+
+    rgb.x = _powf(rgb.x + 0.0123590268091f, 1.21960168685f);
+    rgb.y = _powf(rgb.y + 0.00553762499f, 1.09288097476f);
+    rgb.z = _powf(rgb.z + 0.00098882956815f, 1.21307563286f);
+
+    rgb.x = 1.00983508896 * _powf(( rgb.x / (rgb.x + 0.217232010512f)), 1.087388590400f);
+    rgb.y = 1.03363590768 * _powf(( rgb.y / (rgb.y + 0.359659874254f)), 0.822794525712f);
+    rgb.z = 1.00229995326 * _powf(( rgb.z / (rgb.z + 0.596114197952f)), 0.524881728083f);
+
+    rgb /= 1.03363590768;
+
+    rgb *= 0.999;
+
+    // rgb.x = _fminf(1,rgb.x);
+    // rgb.y = _fminf(1,rgb.y);
+    // rgb.z = _fminf(1,rgb.z);
+
+    rgb = pow3(2.4, rgb, 1);
+
+    rgb = DanieleCurve(rgb,0.18,0.18,1.0,1.15,0.04,1);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 0);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 0);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 0);
+
+    return rgb;
+}
+
+__DEVICE__ float3 Cristal(float3 rgb) {
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 1);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 1);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 1);
+
+    rgb = maxf3(0, rgb);
+
+    rgb *= 0.5;
+
+    rgb = rgb + 0.00532858524025;
+
+    rgb.x = _powf(rgb.x - 0.00532464024375, 1.24143694109);
+    rgb.y = _powf(rgb.y - 0.00532858524025, 0.95001152677);
+    rgb.z = _powf(rgb.z - 0.00528148742033, 1.06450152059);
+
+    rgb.x = 0.995426460149 * _powf(( rgb.x / (rgb.x + 0.102394267575f)), 0.610945423478f);
+    rgb.y = 1.00813824919 * _powf(( rgb.y / (rgb.y + 0.141559357531f)), 0.813394172638f);
+    rgb.z = 0.998124042004 * _powf(( rgb.z / (rgb.z + 0.142290528349f)), 0.741182202753f);
+
+    rgb = pow3(2.4, rgb, 1);
+
+    rgb = DanieleCurve(rgb,0.18,0.18,1.03,1.15,0.04,1);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 0);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 0);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 0);
+
+    return rgb;
+}
+
 __DEVICE__ float3 filmdesat(float3 rgb, float sat) {
 
     rgb.x = _powf(0.1, rgb.x);
@@ -380,14 +562,27 @@ __DEVICE__ float3 filmdesat(float3 rgb, float sat) {
 }
 
 DEFINE_UI_PARAMS(sat, Film Desat, DCTLUI_SLIDER_FLOAT, 1, 0.0, 1, 0.01)
-DEFINE_UI_PARAMS(split_tone, Split Tone , DCTLUI_COMBO_BOX, 4, {ClassNeg,Crazyneg,CineNeg,ClassicP1,ClassicP2,ClassicP3,BWX,ClassicRev,InstFilm}, {Classic  Negative,Crazy Negative,Classic Cinema Negative, Print V1, Print V2,Print V3,B&W X,Classic Reversal,Instant Film})
-
+DEFINE_UI_PARAMS(process, Push & Pull, DCTLUI_SLIDER_FLOAT, 0, -4, 4, 0.01)
+DEFINE_UI_PARAMS(split_tone, Split Tone , DCTLUI_COMBO_BOX, 4, {ClassNeg,Crazyneg,CineNeg,ClassicP1,ClassicP2,ClassicP3,ClassicP4,ClassicP5,BWX,ClassicRev,InstFilm,CPrint,Cristal_print,nippon}, {Classic  Negative,Crazy Negative,Classic Cinema Negative, Print V1, Print V2,Print V3,Print V4,Print V5,B&W X,Classic Reversal,Instant Film,C-Print,Cristal,Nippon})
+DEFINE_UI_PARAMS(strength, Split Strenght, DCTLUI_SLIDER_FLOAT, 1, 0.0, 1, 0.01)
 
 __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
 
     float3 rgb = make_float3(p_R, p_G, p_B);
 
     rgb = filmdesat(rgb, sat);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 1);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 1);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 1);
+
+    rgb *= _exp2f(process);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 0);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 0);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 0);
+
+    float3 copy = rgb;
 
     if (split_tone == ClassNeg) {
 
@@ -412,6 +607,9 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     } else if (split_tone == ClassicP3) {
 
         rgb = classicprintv3(rgb);
+    } else if (split_tone == ClassicP4) {
+
+        rgb = ClassicPrintv4(rgb);
 
     } else if (split_tone == BWX) {
 
@@ -424,8 +622,31 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     } else if (split_tone == InstFilm) {
         rgb = instantfilm(rgb);
 
-    } 
+    } else if (split_tone == ClassicP5) {
+        rgb = classicprintv5(rgb);
 
+    } else if (split_tone == CPrint){
+
+        rgb = C3print(rgb);
+    } else if (split_tone == nippon){
+
+        rgb = Nippon(rgb);
+    }else if (split_tone == Cristal_print){
+
+        rgb = Cristal(rgb);
+    }
+
+    rgb = _mix(copy,rgb,strength);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 1);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 1);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 1);
+
+    rgb *= _exp2f(-process);
+
+    rgb.x = oetf_davinci_intermediate(rgb.x, 0);
+    rgb.y = oetf_davinci_intermediate(rgb.y, 0);
+    rgb.z = oetf_davinci_intermediate(rgb.z, 0);
     return rgb;
 }
 
