@@ -177,7 +177,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     rgb = maxf3(0, rgb);
 
     rgb.x = full_sigmoid(rgb.x,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness - ltm      ,display_white_target*white.x,display_black_target,0);
-    rgb.y = full_sigmoid(rgb.y,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness - ltm * ltn,display_white_target*white.y,display_black_target,0);
+    rgb.y = full_sigmoid(rgb.y,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness - ltm + ltn,display_white_target*white.y,display_black_target,0);
     rgb.z = full_sigmoid(rgb.z,middle_grey_in,middle_grey,middle_grey_contrast,contrast_skewness + ltm      ,display_white_target*white.z,display_black_target,0);
 
     rgb = _f3full_sigmoid(rgb,middle_grey_in,middle_grey,1,0,1,0,1);
