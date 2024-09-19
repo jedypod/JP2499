@@ -2,7 +2,7 @@
 
 /*------------------------------------------------
     Split-tone Presets for 2499LOG
-    v0.0.3
+    v0.0.4
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -494,9 +494,10 @@ __DEVICE__ float3 Nippon(float3 rgb) {
     rgb.y = 1.03363590768 * _powf(( rgb.y / (rgb.y + 0.359659874254f)), 0.822794525712f);
     rgb.z = 1.00229995326 * _powf(( rgb.z / (rgb.z + 0.596114197952f)), 0.524881728083f);
 
-    rgb /= 1.03363590768;
+    rgb.x = rgb.x * (0.99/1.03363590768);
+    rgb.y = rgb.y * (0.99/1.03363590768);
+    rgb.z = rgb.z * (0.99/1.03363590768);
 
-    rgb *= 0.999;
 
     // rgb.x = _fminf(1,rgb.x);
     // rgb.y = _fminf(1,rgb.y);
@@ -521,9 +522,13 @@ __DEVICE__ float3 Cristal(float3 rgb) {
 
     rgb = maxf3(0, rgb);
 
-    rgb *= 0.5;
+    rgb.x *= 0.5;
+    rgb.y *= 0.5;
+    rgb.z *= 0.5;
 
-    rgb = rgb + 0.00532858524025;
+    rgb.x = rgb.x + 0.00532858524025;
+    rgb.y = rgb.y + 0.00532858524025;
+    rgb.z = rgb.z + 0.00532858524025;
 
     rgb.x = _powf(rgb.x - 0.00532464024375, 1.24143694109);
     rgb.y = _powf(rgb.y - 0.00532858524025, 0.95001152677);
@@ -563,7 +568,7 @@ __DEVICE__ float3 filmdesat(float3 rgb, float sat) {
 
 DEFINE_UI_PARAMS(sat, Film Desat, DCTLUI_SLIDER_FLOAT, 1, 0.0, 1, 0.01)
 DEFINE_UI_PARAMS(process, Push & Pull, DCTLUI_SLIDER_FLOAT, 0, -4, 4, 0.01)
-DEFINE_UI_PARAMS(split_tone, Split Tone , DCTLUI_COMBO_BOX, 4, {ClassNeg,Crazyneg,CineNeg,ClassicP1,ClassicP2,ClassicP3,ClassicP4,ClassicP5,BWX,ClassicRev,InstFilm,CPrint,Cristal_print,nippon}, {Classic  Negative,Crazy Negative,Classic Cinema Negative, Print V1, Print V2,Print V3,Print V4,Print V5,B&W X,Classic Reversal,Instant Film,C-Print,Cristal,Nippon})
+DEFINE_UI_PARAMS(split_tone, Split Tone , DCTLUI_COMBO_BOX, 0, {ClassNeg,Crazyneg,CineNeg,ClassicP1,ClassicP2,ClassicP3,ClassicP4,ClassicP5,BWX,ClassicRev,InstFilm,CPrint,Cristal_print,nippon}, {Classic  Negative,Crazy Negative,Classic Cinema Negative, Print V1, Print V2,Print V3,Print V4,Print V5,B&W X,Classic Reversal,Instant Film,C-Print,Cristal,Nippon})
 DEFINE_UI_PARAMS(strength, Split Strenght, DCTLUI_SLIDER_FLOAT, 1, 0.0, 1, 0.01)
 
 __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
