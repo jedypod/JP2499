@@ -1,7 +1,7 @@
 #line 2
 /*------------------------------------------------
     2499DRT
-    v1.2.3
+    v1.2.4
     
     Written by Juan Pablo Zambrano
     https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT
@@ -39,11 +39,7 @@ __DEVICE__ float3x3 make_float3x3(float3 a, float3 b, float3 c) {
 #define matrix_p3dci_to_xyz                                                                                                                \
     make_float3x3(make_float3(0.44516982f, 0.27713441f, 0.27713441f),                                                                      \
                   make_float3(0.20949168f, 0.72159525f, 0.06891307f),                                                                      \
-                  make_float3(-0.000000000000f, 0.04706056f, 0.90735539f))
-#define matrix_AcerSwiftX_to_xyz                                                                                                           \
-    make_float3x3(make_float3(0.42538169f, 0.34126547f, 0.18380874f),                                                                      \
-                  make_float3(0.2195273f, 0.724392f, 0.05608072f),                                                                         \
-                  make_float3(0.01657684f, 0.10659271f, 0.9658882f))                                                                            
+                  make_float3(-0.000000000000f, 0.04706056f, 0.90735539f))                                                                         
 #define matrix_xyz_to_rec2020                                                                                                              \
     make_float3x3(make_float3(  1.71665118797f, -0.355670783776f, -0.253366281374f),                                                       \
                   make_float3(-0.666684351832f,   1.61648123664f,  0.015768545814f),                                                       \
@@ -200,7 +196,7 @@ __DEVICE__ inline float3 avgweights(float3x3 mt) {
 
 __DEVICE__ inline float3 EnergyCorrection(float3 pre, float3 post,float3x3 mt) {
 
-    float PI_LOCAL = _atan2f(1, 1) * 4;
+    float PI_LOCAL = _atan2f(1.0f, 1.0f) * 4.0f;
 
     float3 weights = avgweights(mt);
 
@@ -210,7 +206,8 @@ __DEVICE__ inline float3 EnergyCorrection(float3 pre, float3 post,float3x3 mt) {
 
     float gain = 4 * _atan2f(preavg, postavg) / PI_LOCAL;
     gain = powerptoe(gain, 0.16f, 0.0f, 1.0f);
-    gain = _tanf(gain * PI_LOCAL / 4);
+    gain = _sinf(gain * PI_LOCAL / 4)/_cosf(gain * PI_LOCAL / 4);
+    gain = isinf(gain)?1:gain;
 
     float3 out = post * gain;
 
